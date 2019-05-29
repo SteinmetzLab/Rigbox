@@ -32,7 +32,7 @@ classdef WeighingScale < handle
     end
     
     function g = readGrams(obj)
-      g = obj.LastGrams;
+      g = obj.LastGrams(end);
     end
     
     function init(obj)
