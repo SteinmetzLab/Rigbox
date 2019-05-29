@@ -764,7 +764,7 @@ classdef MControl < handle
       
       % Create the Alyx panel
       url = char(getOr(dat.paths, 'databaseURL', ''));
-      obj.AlyxPanel = eui.AlyxPanel(headerBox, isempty(url));
+      obj.AlyxPanel = eui.AlyxPanel(headerBox, ~isempty(url));
       addlistener(obj.NewExpSubject, 'SelectionChanged', @(src, evt)obj.AlyxPanel.dispWaterReq(src, evt));
       addlistener(obj.LogSubject, 'SelectionChanged', @(src, evt)obj.AlyxPanel.dispWaterReq(src, evt));
       
