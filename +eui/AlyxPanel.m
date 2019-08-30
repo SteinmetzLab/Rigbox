@@ -243,7 +243,7 @@ classdef AlyxPanel < handle
                     % dispWaterReq)
                     obj.LoginTimer = timer('StartDelay', 30*60, 'TimerFcn',...
                         @(~,~)obj.login, 'BusyMode', 'queue', 'Name', 'Login Timer');
-                    start(obj.LoginTimer)
+%                     start(obj.LoginTimer)
                     % Enable all buttons
                     set(findall(obj.RootContainer, '-property', 'Enable'), 'Enable', 'on');
                     set(obj.LoginText, 'ForegroundColor', 'black',...
@@ -635,7 +635,7 @@ classdef AlyxPanel < handle
                 return
             end
             % Refresh the timer as the user isn't inactive
-            stop(obj.LoginTimer); start(obj.LoginTimer)
+            stop(obj.LoginTimer); %start(obj.LoginTimer)
             try
                 s = ai.getData('water-restricted-subjects'); % struct with data about restricted subjects
                 idx = strcmp(obj.Subject, {s.nickname});
