@@ -25,7 +25,7 @@ try
   
   % Check for reserved fieldnames
   reserved = {'randomiseConditions', 'services', 'expPanelFun', ...
-    'numRepeats', 'defFunction', 'waterType', 'isPassive'};
+    'defFunction', 'waterType', 'isPassive'};
   assert(~any(ismember(fieldnames(parsStruct), reserved)), ...
     'exp:InferParameters:ReservedParameters', ...
     'The following param names are reserved:\n%s', ...
@@ -34,8 +34,24 @@ try
   szFcn = @(a)iff(ischar(a), @()size(a,1), @()size(a,2));
   sz = iff(isempty(fieldnames(parsStruct)), 1,... % if there are no paramters sz = 1
       structfun(szFcn, parsStruct)); % otherwise get number of columns
-  % add 'numRepeats' parameter, where total number of trials = 1000
-  parsStruct.numRepeats = ones(1,max(sz))*floor(1000/max(sz));
+  if ~isfield(parsStruct,'numRepeats')
+    % add 'numRepeats' parameter, where total number of trials = 1000 (or
+    % numTrials, available)
+    if ~isfield(parsStruct,'numTrials')
+      parsStruct.numRepeats = ones(1,max(sz))*floor(1000/max(sz));
+    else
+      parsStruct.numRepeats = ones(1,max(sz))*floor(parsStruct.numTrials/max(sz));
+    end
+  else
+    % check that struct has the right size
+    assert(all(max(size(parsStruct.numRepeats))==max(sz)),...
+    'exp:IncorrectConditionalRepeatsSize',...
+    'numRepeats must be equal to the length of other conditionals');
+    if isfield(parsStruct,'numTrials')
+      warning('Unused field numTrials removed');
+      parsStruct = rmfield(parsStruct,'numTrials');
+    end
+  end
   parsStruct.defFunction = expdef;
   parsStruct.type = 'custom';
   % Define the ExpPanel to use (automatically by name convention for now)
