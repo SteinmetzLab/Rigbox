@@ -34,8 +34,9 @@ try
   szFcn = @(a)iff(ischar(a), @()size(a,1), @()size(a,2));
   sz = iff(isempty(fieldnames(parsStruct)), 1,... % if there are no paramters sz = 1
       structfun(szFcn, parsStruct)); % otherwise get number of columns
-  % add 'numRepeats' parameter, where total number of trials = 1000
   if ~isfield(parsStruct,'numRepeats')
+    % add 'numRepeats' parameter, where total number of trials = 1000 (or
+    % numTrials, available)
     if ~isfield(parsStruct,'numTrials')
       parsStruct.numRepeats = ones(1,max(sz))*floor(1000/max(sz));
     else
@@ -48,7 +49,7 @@ try
     'numRepeats must be equal to the length of other conditionals');
     if isfield(parsStruct,'numTrials')
       warning('Unused field numTrials removed');
-      parsStruct = rmfield(parsStruct,'numTrials')
+      parsStruct = rmfield(parsStruct,'numTrials');
     end
   end
   parsStruct.defFunction = expdef;
