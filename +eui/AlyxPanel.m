@@ -703,12 +703,13 @@ classdef AlyxPanel < handle
             %
             % See also hw.WeighingScale, eui.MControl
             set(obj.WeightButton, 'String', sprintf('Record %.1fg', src.readGrams), 'Callback', @(~,~)obj.recordWeight(src.readGrams))
+            stop(obj.WeightTimer)
             obj.WeightTimer = timer('Name', 'Last Weight',...
                 'TimerFcn', @(~,~)set(obj.WeightButton, 'String', 'Manual weighing', 'Callback', @(~,~)obj.recordWeight),...
                 'StopFcn', @(src,~)delete(src), 'StartDelay', 10);
             start(obj.WeightTimer)
         end
-                
+             
     end
     
     methods (Access = protected)
