@@ -702,12 +702,24 @@ classdef AlyxPanel < handle
             %     @(src,evt)aiPanel.updateWeightButton(src,evt));
             %
             % See also hw.WeighingScale, eui.MControl
-            set(obj.WeightButton, 'String', sprintf('Record %.1fg', src.readGrams), 'Callback', @(~,~)obj.recordWeight(src.readGrams))
-            stop(obj.WeightTimer)
-            obj.WeightTimer = timer('Name', 'Last Weight',...
-                'TimerFcn', @(~,~)set(obj.WeightButton, 'String', 'Manual weighing', 'Callback', @(~,~)obj.recordWeight),...
-                'StopFcn', @(src,~)delete(src), 'StartDelay', 10);
-            start(obj.WeightTimer)
+            g = src.readGrams;
+            if g > 5
+                try
+                    stop(obj.WeightTimer);                
+                catch
+                end
+                    set(obj.WeightButton, 'String', sprintf('Record %.1fg', src.readGrams), 'Callback', @(~,~)obj.recordWeight(src.readGrams))
+
+            else 
+                try
+                    stop(obj.WeightTimer);
+                catch
+                end
+                obj.WeightTimer = timer('Name', 'Last Weight',...
+                    'TimerFcn', @(~,~)set(obj.WeightButton, 'String', 'Manual weighing', 'Callback', @(~,~)obj.recordWeight),...
+                    'StopFcn', @(src,~)delete(src), 'StartDelay', 3);
+                start(obj.WeightTimer)
+            end
         end
              
     end
