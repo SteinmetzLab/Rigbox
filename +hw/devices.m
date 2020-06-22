@@ -58,6 +58,17 @@ if init
   else
     rig.daqController = hw.DaqController; % create a dummy DaqController
   end
+  
+  if isfield(rig, 'startStopTrigger')
+      s = daq.createSession('ni');
+      d = s.addDigitalChannel(...
+              rig.startStopTrigger.daqID, rig.startStopTrigger.channelID, 'OutputOnly');
+      s.outputSingleScan(0);
+      rig.startStopTrigger.DigitalDaqSession = s;   
+      rig.startStopTrigger.DigitalDaqChannel = d;  
+      
+  end
+  
 end
 
 %% Audio

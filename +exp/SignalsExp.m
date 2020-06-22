@@ -75,6 +75,8 @@ classdef SignalsExp < handle
     % Occulus viewing model
     Occ
     
+    Rig
+    
     Time
     
     Inputs
@@ -163,6 +165,7 @@ classdef SignalsExp < handle
       obj.Visual = StructRef;
       obj.Audio = audstream.Registry(rig.audioDevices);
       obj.Events = sig.Registry(clockFun);
+      obj.Rig = rig;
       %% configure signals
       net = sig.Net;
       net.Debug = obj.Debug;
@@ -383,6 +386,7 @@ classdef SignalsExp < handle
         @(~,t)iff(obj.Time.Node.CurrValue, [], @()obj.Time.post(t)));
       % Add callback to update expStart
       start.addCallback(@(varargin)obj.Events.expStart.post(ref));
+      start.addCallback(@(varargin)startTrigger(obj));
       obj.Pending = dueHandlerInfo(obj, start, initInfo, obj.Clock.now + obj.PreDelay);
       
       %refresh the stimulus window
@@ -426,6 +430,14 @@ classdef SignalsExp < handle
       end
     end
     
+    function startTrigger(obj)
+        fprintf(1,'exp start called!\n');
+        if isfield(obj.Rig, 'startStopTrigger')
+            obj.Rig.startStopTrigger.DigitalDaqSession.outputSingleScan(1);
+        end
+        
+    end
+    
     function bool = inPhase(obj, name)
       % Reports whether currently in specified phase
       %
@@ -452,6 +464,11 @@ classdef SignalsExp < handle
           affectedIdxs = submit(obj.Net.Id, stopNode.Id, true);
           applyNodes(obj.Net.Id, affectedIdxs);
         end
+      end
+      
+      % Stop trigger here
+      if isfield(obj.Rig, 'startStopTrigger')
+          obj.Rig.startStopTrigger.DigitalDaqSession.outputSingleScan(0);
       end
       
       % set any pending handlers inactive
