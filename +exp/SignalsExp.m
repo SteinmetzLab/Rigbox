@@ -232,6 +232,21 @@ classdef SignalsExp < handle
 %       obj.Data.stimWindowUpdateLags = zeros(60*60*60*2, 1);
       obj.ParamsLog = obj.Params.log();
       obj.useRig(rig);
+      
+      %refresh the stimulus window
+      if ~isempty(obj.SyncBounds) % render sync rectangle
+          % render sync region with next colour in cycle
+          col = obj.SyncColourCycle(1,:);
+          % render rectangle in the sync region bounds in the required colour
+          Screen('FillRect', obj.StimWindowPtr, col, obj.SyncBounds);
+          % cyclically increment the next sync idx
+          obj.NextSyncIdx = 2;
+      end
+      
+      Screen('Flip', obj.StimWindowPtr);
+      fprintf(1, 'Pausing before experiment start...\n');
+      pause(0.2)
+      fprintf(1, 'Starting experiment.\n');
     end
     
     function useRig(obj, rig)
@@ -385,12 +400,10 @@ classdef SignalsExp < handle
       start.addCallback(...
         @(~,t)iff(obj.Time.Node.CurrValue, [], @()obj.Time.post(t)));
       % Add callback to update expStart
-      start.addCallback(@(varargin)obj.Events.expStart.post(ref));
-      start.addCallback(@(varargin)startTrigger(obj));
+      start.addCallback(@(varargin)startTrigger(obj,ref));
       obj.Pending = dueHandlerInfo(obj, start, initInfo, obj.Clock.now + obj.PreDelay);
       
-      %refresh the stimulus window
-      Screen('Flip', obj.StimWindowPtr);
+      
       
       try
         % start the experiment loop
@@ -401,7 +414,7 @@ classdef SignalsExp < handle
           post(obj, 'AlyxRequest', obj.Data.expRef); %request token from client
           pause(0.2) 
         end
-        
+
         %Trigger the 'experimentCleanup' event so any handlers will be called
         cleanupInfo = exp.EventInfo('experimentCleanup', obj.Clock.now, obj);
         fireEvent(obj, cleanupInfo);
@@ -428,14 +441,18 @@ classdef SignalsExp < handle
         %rethrow the exception
         rethrow(obj.addErrorCause(ex))
       end
+        
+        % Stop trigger here
+        if isfield(obj.Rig, 'startStopTrigger')
+          obj.Rig.startStopTrigger.DigitalDaqSession.outputSingleScan(0);
+        end
     end
     
-    function startTrigger(obj)
-        fprintf(1,'exp start called!\n');
+    function startTrigger(obj, ref)
         if isfield(obj.Rig, 'startStopTrigger')
             obj.Rig.startStopTrigger.DigitalDaqSession.outputSingleScan(1);
         end
-        
+        obj.Events.expStart.post(ref);
     end
     
     function bool = inPhase(obj, name)
@@ -464,11 +481,6 @@ classdef SignalsExp < handle
           affectedIdxs = submit(obj.Net.Id, stopNode.Id, true);
           applyNodes(obj.Net.Id, affectedIdxs);
         end
-      end
-      
-      % Stop trigger here
-      if isfield(obj.Rig, 'startStopTrigger')
-          obj.Rig.startStopTrigger.DigitalDaqSession.outputSingleScan(0);
       end
       
       % set any pending handlers inactive
