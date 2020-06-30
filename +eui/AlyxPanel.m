@@ -657,24 +657,29 @@ classdef AlyxPanel < handle
                     expected_weight = getOr(record, 'expected_weight', NaN);
                     % Set colour based on weight percentage
                     weight_pct = (weight-wr.implant_weight)/(expected_weight-wr.implant_weight);
-                    if weight_pct < 0.7 % Mouse below 70% original weight
+                    if weight_pct < 0.8 % Mouse below 70% original weight
                         colour = 'red';
-                        weight_pct = '< 70%';
-                    elseif weight_pct < 0.8 % Mouse below 80% original weight
+                        suggest_str = ', provide extra +1.0ml';
+                    elseif weight_pct < 0.82
                         colour = [0.91, 0.41, 0.17]; % Orange
-                        weight_pct = '< 80%';
+                        suggest_str = ', provide extra +0.25-0.5ml';
+                    elseif weight_pct < 0.85 % Mouse below 80% original weight
+                        colour = [0.91, 0.41, 0.17]; % Orange
+                        suggest_str = '';
                     else
                         colour = 'black'; % Mouse above 80% or no weight measured today
-                        weight_pct = '> 80%';
+                        suggest_str = '';
                     end
                     % Round up water remaining to the near 0.01
                     remainder = obj.round(s(idx).remaining_water, 'up');
+                    remainder_str = sprintf('water provided %.2f/%.2f today',water,obj.round(s(idx).expected_water,'up'));
                     % Set text
                     set(obj.WaterRequiredText, 'ForegroundColor', colour, 'String', ...
-                        sprintf(['Subject %s requires %.2f of %.2f today\n\t '...
-                        'Weight today: %.2f (%s)    Water today: %.2f'], obj.Subject, ...
-                        remainder, obj.round(s(idx).expected_water, 'up'), weight, ...
-                        weight_pct, obj.round(water, 'down')));
+                        sprintf('Subject %s (weight: %.2f, %2.f%%) %s%s', obj.Subject, ...
+                        weight,weight_pct*100,...
+                        remainder_str,...
+                        suggest_str));%, ...
+                        %obj.round(water, 'down')));
                     % Set WaterRemaining attribute for changeWaterText callback
                     obj.WaterRemaining = remainder;
                 end
