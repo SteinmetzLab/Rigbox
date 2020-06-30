@@ -710,19 +710,23 @@ classdef AlyxPanel < handle
             g = src.readGrams;
             if g > 5
                 try
-                    stop(obj.WeightTimer);                
+                    stop(obj.WeightTimer);   
+                    delete(obj.WeightTimer) % ... delete it...
+                    obj.WeightTimer = []; % ... and remove it
                 catch
                 end
-                    set(obj.WeightButton, 'String', sprintf('Record %.1fg', src.readGrams), 'Callback', @(~,~)obj.recordWeight(src.readGrams))
+                set(obj.WeightButton, 'String', sprintf('Record %.1fg', src.readGrams), 'Callback', @(~,~)obj.recordWeight(src.readGrams))
 
             else 
                 try
                     stop(obj.WeightTimer);
+                    delete(obj.WeightTimer) % ... delete it...
+                    obj.WeightTimer = []; % ... and remove it
                 catch
                 end
                 obj.WeightTimer = timer('Name', 'Last Weight',...
                     'TimerFcn', @(~,~)set(obj.WeightButton, 'String', 'Manual weighing', 'Callback', @(~,~)obj.recordWeight),...
-                    'StopFcn', @(src,~)delete(src), 'StartDelay', 3);
+                    'StopFcn', @(src,~)delete(src), 'StartDelay', 1);
                 start(obj.WeightTimer)
             end
         end
