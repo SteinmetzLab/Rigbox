@@ -20,7 +20,7 @@ classdef MControl < handle
   end
   
   properties (SetAccess = private)
-    AlyxPanel % holds the AlyxPanel object (see buildUI(), eui.AlyxPanel())
+    AlyxPanel_ibl % holds the AlyxPanel object (see buildUI(), eui.AlyxPanel())
     LogSubject % Subject selector control
     NewExpSubject % Experiment selector control
     NewExpType % Experiment type selector control
@@ -84,8 +84,8 @@ classdef MControl < handle
       obj.RefreshTimer = timer('Period', 0.1, 'ExecutionMode', 'fixedSpacing',...
         'TimerFcn', @(~,~)notify(obj, 'Refresh'));
       start(obj.RefreshTimer);
-      addlistener(obj.AlyxPanel, 'Connected', @obj.expSubjectChanged);
-      addlistener(obj.AlyxPanel, 'Disconnected', @obj.expSubjectChanged);
+      addlistener(obj.AlyxPanel_ibl, 'Connected', @obj.expSubjectChanged);
+      addlistener(obj.AlyxPanel_ibl, 'Disconnected', @obj.expSubjectChanged);
       try
         if isfield(rig, 'scale') && ~isempty(rig.scale)
           obj.WeighingScale = getOr(rig, 'scale');
@@ -94,7 +94,7 @@ classdef MControl < handle
           % the weigh button in the Alyx Panel.
           obj.Listeners = [obj.Listeners,...
             {event.listener(obj.WeighingScale, 'NewReading', @obj.newScalesReading)}...
-            {event.listener(obj.WeighingScale, 'NewReading', @(src,evt)obj.AlyxPanel.updateWeightButton(src,evt))}];
+            {event.listener(obj.WeighingScale, 'NewReading', @(src,evt)obj.AlyxPanel_ibl.updateWeightButton(src,evt))}];
         end
       catch
         obj.log('Warning: could not connect to weighing scales');
@@ -120,11 +120,11 @@ classdef MControl < handle
     
     function tabChanged(obj)
     % Function to change which subject Alyx uses when user changes tab
-      if ~obj.AlyxPanel.AlyxInstance.IsLoggedIn; return; end
+      if ~obj.AlyxPanel_ibl.AlyxInstance.IsLoggedIn; return; end
       if obj.TabPanel.SelectedChild == 1 % Log tab
-        obj.AlyxPanel.dispWaterReq(obj.LogSubject);
+        obj.AlyxPanel_ibl.dispWaterReq(obj.LogSubject);
       else % SelectedChild == 2 Experiment tab
-        obj.AlyxPanel.dispWaterReq(obj.NewExpSubject);
+        obj.AlyxPanel_ibl.dispWaterReq(obj.NewExpSubject);
       end
     end
     
@@ -136,19 +136,19 @@ classdef MControl < handle
                 obj.expTypeChanged(); 
             case 'Connected' % user logged in to Alyx
                 % Change subject list to database list
-                obj.NewExpSubject.Option = obj.AlyxPanel.SubjectList;
-                obj.LogSubject.Option = obj.AlyxPanel.SubjectList;
+                obj.NewExpSubject.Option = obj.AlyxPanel_ibl.SubjectList;
+                obj.LogSubject.Option = obj.AlyxPanel_ibl.SubjectList;
                 % if selected is not in the database list, switch to
                 % default
-                if ~any(strcmp(obj.NewExpSubject.Selected, obj.AlyxPanel.SubjectList))
+                if ~any(strcmp(obj.NewExpSubject.Selected, obj.AlyxPanel_ibl.SubjectList))
                     obj.NewExpSubject.Selected = 'default';
                     obj.expTypeChanged();
                 end
-                if ~any(strcmp(obj.LogSubject.Selected, obj.AlyxPanel.SubjectList))
+                if ~any(strcmp(obj.LogSubject.Selected, obj.AlyxPanel_ibl.SubjectList))
                     obj.LogSubject.Selected = 'default';
                     obj.expTypeChanged();
                 end
-                obj.AlyxPanel.dispWaterReq(obj.NewExpSubject);
+                obj.AlyxPanel_ibl.dispWaterReq(obj.NewExpSubject);
             case 'Disconnected' % user logged out of Alyx
                 obj.NewExpSubject.Option = unique([{'default'}; dat.listSubjects]);
                 obj.LogSubject.Option = unique([{'default'}; dat.listSubjects]);
@@ -393,7 +393,7 @@ classdef MControl < handle
                   end
                   % Determine the experiment start time
                   try % Try getting data from Alyx
-                    ai = obj.AlyxPanel.AlyxInstance;
+                    ai = obj.AlyxPanel_ibl.AlyxInstance;
                     assert(ai.IsLoggedIn)
                     meta = ai.getSessions(expRef);
                     startedTime = ai.datenum(meta.start_time);
@@ -564,12 +564,12 @@ classdef MControl < handle
             return;
         end
         % Save the current instance of Alyx so that eui.ExpPanel can register water to the correct account
-        if ~obj.AlyxPanel.AlyxInstance.IsLoggedIn &&...
+        if ~obj.AlyxPanel_ibl.AlyxInstance.IsLoggedIn &&...
             ~strcmp(obj.NewExpSubject.Selected,'default') &&...
-            ~obj.AlyxPanel.AlyxInstance.Headless
+            ~obj.AlyxPanel_ibl.AlyxInstance.Headless
           try
-            obj.AlyxPanel.login();
-            assert(obj.AlyxPanel.AlyxInstance.IsLoggedIn||obj.AlyxPanel.AlyxInstance.Headless);
+            obj.AlyxPanel_ibl.login();
+            assert(obj.AlyxPanel_ibl.AlyxInstance.IsLoggedIn||obj.AlyxPanel_ibl.AlyxInstance.Headless);
           catch
             obj.log('Warning: Must be logged in to Alyx before running an experiment')
             return
@@ -581,11 +581,11 @@ classdef MControl < handle
         obj.Parameters.set('services', services(:),...
             'List of experiment services to use during the experiment');
         % Create new experiment reference
-        [expRef, ~, url] = obj.AlyxPanel.AlyxInstance.newExp(...
+        [expRef, ~, url] = obj.AlyxPanel_ibl.AlyxInstance.newExp(...
           obj.NewExpSubject.Selected, now, obj.Parameters.Struct); 
         % Add a copy of the AlyxInstance to the rig object for later
         % water registration, &c.
-        rig.AlyxInstance = obj.AlyxPanel.AlyxInstance;
+        rig.AlyxInstance = obj.AlyxPanel_ibl.AlyxInstance;
         rig.AlyxInstance.SessionURL = url;
         
         panel = eui.ExpPanel.live(obj.ActiveExpsGrid, expRef, rig, obj.Parameters.Struct);
@@ -604,8 +604,8 @@ classdef MControl < handle
       entries = obj.Log.entriesByType('weight-grams');
       datenums = floor([entries.date]);
       obj.WeightAxes.clear();
-      if obj.AlyxPanel.AlyxInstance.IsLoggedIn && ~strcmp(obj.LogSubject.Selected,'default')
-        obj.AlyxPanel.viewSubjectHistory(obj.WeightAxes.Handle)
+      if obj.AlyxPanel_ibl.AlyxInstance.IsLoggedIn && ~strcmp(obj.LogSubject.Selected,'default')
+        obj.AlyxPanel_ibl.viewSubjectHistory(obj.WeightAxes.Handle)
         rotateticklabel(obj.WeightAxes.Handle, 45);
       else
         if numel(datenums) > 0
@@ -653,8 +653,8 @@ classdef MControl < handle
         delete(obj.RefreshTimer);
         obj.RefreshTimer = [];
       end
-      % delete the AlyxPanel object
-      if ~isempty(obj.AlyxPanel); delete(obj.AlyxPanel); end
+      % delete the AlyxPanel_ibl object
+      if ~isempty(obj.AlyxPanel_ibl); delete(obj.AlyxPanel_ibl); end
       %close connectiong to weighing scales
       if ~isempty(obj.WeighingScale)
         obj.WeighingScale.cleanup();
@@ -675,7 +675,7 @@ classdef MControl < handle
       
       obj.log('Logged weight of %.1fg for ''%s''', grams, subject);
       % post weight to Alyx
-      obj.AlyxPanel.recordWeight(grams, subject)
+      obj.AlyxPanel_ibl.recordWeight(grams, subject)
       
       %refresh log entries so new weight reading is plotted
       obj.Log.setSubject(obj.LogSubject.Selected);
@@ -771,9 +771,9 @@ classdef MControl < handle
       
       % Create the Alyx panel
 
-      obj.AlyxPanel = eui.AlyxPanel(headerBox);
-      addlistener(obj.NewExpSubject, 'SelectionChanged', @(src, evt)obj.AlyxPanel.dispWaterReq(src, evt));
-      addlistener(obj.LogSubject, 'SelectionChanged', @(src, evt)obj.AlyxPanel.dispWaterReq(src, evt));
+      obj.AlyxPanel_ibl = eui.AlyxPanel_ibl(headerBox);
+      addlistener(obj.NewExpSubject, 'SelectionChanged', @(src, evt)obj.AlyxPanel_ibl.dispWaterReq(src, evt));
+      addlistener(obj.LogSubject, 'SelectionChanged', @(src, evt)obj.AlyxPanel_ibl.dispWaterReq(src, evt));
       
       % a titled panel for the parameters editor
       param = uiextras.Panel('Parent', newExpBox, 'Title', 'Parameters', 'Padding', 5);
