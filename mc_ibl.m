@@ -6,7 +6,7 @@ function m = mc
 % 2013-06 CB created
 
 % Pull latest changes from remote
-git.update();
+%git.update();
 % Perform some checks before instantiating
 % NB: paths file check is performed by git.update
 assert(file.exists(fullfile(getOr(dat.paths, 'globalConfig'), 'remote.mat')), ...

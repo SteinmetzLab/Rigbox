@@ -1,4 +1,4 @@
-classdef MControl < handle
+classdef MControl_ibl < handle
   %EUI.MCONTROL Master Control
   %   Whatever it is, take control of your experiments from this GUI
   %   This code is a bit messy and undocumented. 
