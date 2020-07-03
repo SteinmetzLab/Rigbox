@@ -23,7 +23,7 @@ p.rigbox = fileparts(which('addRigboxPaths'));
 % Repository for local copy of everything generated on this rig
 p.localRepository = 'C:\LocalExpData';
 p.localAlyxQueue = 'C:\localAlyxQueue';
-p.databaseURL = 'https://alyx.internationalbrainlab.org/';%'http://alyx.steinmetzlab.net';
+p.databaseURL = 'http://alyx.steinmetzlab.net/';%'http://alyx.steinmetzlab.net';
 p.databaseURL_ibl = 'https://alyx.internationalbrainlab.org/';% % 'https://dev.alyx.internationalbrainlab.org/';
 p.gitExe = 'C:\Program Files\Git\cmd\git.exe';
 % Day on which to update code (0 = Everyday, 1 = Sunday, etc.)
