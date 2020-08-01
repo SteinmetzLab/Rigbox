@@ -82,18 +82,22 @@ classdef DaqController < handle
           else
             daqid = obj.DaqIds;
           end
-          if obj.AnalogueChannelsIdx(ii) % is channal analogue?
+          if obj.AnalogueChannelsIdx(ii)==1 % is channal analogue?
             obj.DaqSession.addAnalogOutputChannel(...
               daqid, obj.DaqChannelIds{ii}, 'Voltage');
-          else % assume digital, always output only
+          elseif obj.AnalogueChannelsIdx==0 % digital, always output only
             obj.DigitalDaqSession.addDigitalChannel(...
               daqid, obj.DaqChannelIds{ii}, 'OutputOnly');
+          elseif obj.AnalogueChannelsIdx==-1 % arduino
+              fopen(obj.SignalGenerators(ii).serialObj);
           end
         end
         v = [obj.SignalGenerators.DefaultValue];
-        obj.DaqSession.outputSingleScan(v(obj.AnalogueChannelsIdx));
-        if any(~obj.AnalogueChannelsIdx)
-          obj.DigitalDaqSession.outputSingleScan(v(~obj.AnalogueChannelsIdx));
+        if any(obj.AnalogueChannelsIdx==1)
+            obj.DaqSession.outputSingleScan(v(obj.AnalogueChannelsIdx==1));
+        end
+        if any(obj.AnalogueChannelsIdx==0)
+          obj.DigitalDaqSession.outputSingleScan(v(obj.AnalogueChannelsIdx==0));
         end
         obj.CurrValue = v;
       else
@@ -158,8 +162,8 @@ classdef DaqController < handle
         end
         channelNames = obj.ChannelNames(1:n);
         analogueChannelsIdx = obj.AnalogueChannelsIdx(1:n);
-        if any(analogueChannelsIdx)&&any(any(values(:,analogueChannelsIdx)~=0))
-          queue(obj, channelNames(analogueChannelsIdx), waveforms(analogueChannelsIdx));
+        if any(analogueChannelsIdx==1)&&any(any(values(:,analogueChannelsIdx==1)~=0))
+          queue(obj, channelNames(analogueChannelsIdx==1), waveforms(analogueChannelsIdx==1));
           if foreground
             startForeground(obj.DaqSession);
           else
@@ -167,13 +171,19 @@ classdef DaqController < handle
           end
           readyWait(obj);
           obj.DaqSession.release;
-        elseif any(~analogueChannelsIdx)
-            waveforms = waveforms(~analogueChannelsIdx);
+        elseif any(analogueChannelsIdx==0)
+            waveforms = waveforms(analogueChannelsIdx==0);
             for n = 1:length(waveforms)
               digitalValues = waveforms{n};
               for m = 1:length(digitalValues)
                 obj.DigitalDaqSession.outputSingleScan(digitalValues(m));
               end
+            end
+        elseif any(analogueChannelsIdx==-1) 
+            % Arduino channels
+            chansIdx = find(analogueChannelsIdx==-1); 
+            for n = 1:numel(chansIdx)
+                gen(chansIdx).output(waveforms(chansIdx));
             end
         end
       end
@@ -184,7 +194,9 @@ classdef DaqController < handle
     end
     
     function v = get.AnalogueChannelsIdx(obj)
-      v = cellfun(@(ch) any(lower(ch=='a')), obj.DaqChannelIds);
+      v = double(cellfun(@(ch) any(lower(ch=='a')), obj.DaqChannelIds));
+      isArduino = cellfun(@(ch)strcmp(ch, 'none'), obj.DaqChannelIds);
+      v(isArduino) = -1;
     end
     
     function v = get.Value(obj)
