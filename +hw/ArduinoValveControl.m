@@ -22,6 +22,7 @@ classdef ArduinoValveControl < handle
     serialObj
     DefaultValue = 0; % ??
     DefaultCommand = 2.0; % uL default reward size
+    ParamsFun = [];
   end
   
   methods
