@@ -31,7 +31,7 @@ classdef ArduinoValveControl < handle
         fopen(s);
         obj.serialObj = s;
       %obj@hw.PulseSwitcher;
-      %obj.ParamsFun = @obj.pulseParams;
+      obj.ParamsFun = [];
     end
     
     function dt = pulseDuration(obj, ul)
