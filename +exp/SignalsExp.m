@@ -181,6 +181,8 @@ classdef SignalsExp < handle
         @(x)((x-obj.Wheel.ZeroOffset) / (obj.Wheel.EncoderResolution*4))*360).skipRepeats();
       obj.Inputs.lick = net.origin('lick');
       obj.Inputs.keyboard = net.origin('keyboard');
+      obj.Inputs.frameTime = net.origin('frame');
+      obj.Inputs.frame = obj.Inputs.frameTime.scan(@plus,0);
       % get global parameters & conditional parameters structs
       [~, globalStruct, allCondStruct] = toConditionServer(...
         exp.Parameters(paramStruct));
@@ -550,6 +552,7 @@ classdef SignalsExp < handle
       if obj.AsyncFlipping
         % wait for flip to complete, and record the time
         time = Screen('AsyncFlipEnd', obj.StimWindowPtr);
+        countFrame(obj);
         obj.AsyncFlipping = false;
         time = fromPtb(obj.Clock, time); %convert ptb/sys time to our clock's time
 %         assert(obj.Data.stimWindowUpdateTimes(obj.StimWindowUpdateCount) == 0);
@@ -557,6 +560,10 @@ classdef SignalsExp < handle
 %         lag = time - obj.Data.stimWindowRenderTimes(obj.StimWindowUpdateCount);
 %         obj.Data.stimWindowUpdateLags(obj.StimWindowUpdateCount) = lag;
       end
+    end
+    
+    function countFrame(obj)
+        post(obj.Inputs.frameTime,1);
     end
     
     function queueSignalUpdate(obj, name, value)
@@ -744,6 +751,13 @@ classdef SignalsExp < handle
           pause(0.25);
           checkInput(obj);
         end
+        
+        %% Check the frame count
+        [time] = Screen('AsyncFlipCheckEnd', obj.StimWindowPtr);
+        if time>0
+            countFrame(obj);
+        end
+        
         %% create a list of handlers that have become due
         dueIdx = find([obj.Pending.dueTime] <= now(obj.Clock));
         ndue = length(dueIdx);
