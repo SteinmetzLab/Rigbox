@@ -181,8 +181,9 @@ classdef SignalsExp < handle
         @(x)((x-obj.Wheel.ZeroOffset) / (obj.Wheel.EncoderResolution*4))*360).skipRepeats();
       obj.Inputs.lick = net.origin('lick');
       obj.Inputs.keyboard = net.origin('keyboard');
-      obj.Inputs.frameTime = net.origin('frame');
-      obj.Inputs.frame = obj.Inputs.frameTime.scan(@plus,0);
+      obj.Data.frameTime = net.origin('frame');
+      obj.Data.lastFrameTime = -1;
+      obj.Inputs.frame = obj.Data.frameTime.scan(@plus,0);
       % get global parameters & conditional parameters structs
       [~, globalStruct, allCondStruct] = toConditionServer(...
         exp.Parameters(paramStruct));
@@ -562,8 +563,12 @@ classdef SignalsExp < handle
       end
     end
     
-    function countFrame(obj)
-        post(obj.Inputs.frameTime,1);
+    function countFrame(obj,time)
+        disp(time)
+        if time~=obj.Data.lastFrameTime
+            post(obj.Data.frameTime,1);
+            obj.Data.lastFrameTime = time;
+        end
     end
     
     function queueSignalUpdate(obj, name, value)
@@ -755,7 +760,7 @@ classdef SignalsExp < handle
         %% Check the frame count
         [time] = Screen('AsyncFlipCheckEnd', obj.StimWindowPtr);
         if time>0
-            countFrame(obj);
+            countFrame(obj,time);
         end
         
         %% create a list of handlers that have become due
