@@ -178,6 +178,17 @@ classdef SignalsExp < handle
         @(x)((x-obj.Wheel.ZeroOffset) / (obj.Wheel.EncoderResolution*4))*360).skipRepeats();
       obj.Inputs.lick = net.origin('lick');
       obj.Inputs.keyboard = net.origin('keyboard');
+      
+      % FRAME CODE
+      obj.Inputs.frameTime = net.origin('frameTime');
+      obj.Inputs.frame = obj.Inputs.frameTime.skipRepeats.scan(@(x,y) x+1,0);
+      % setting frameMode to >0 will increment Inputs.frame by +1 on each
+      % subsequent frame and Outputs.frameMode by -1 until frameMode is 0.
+      % This lets you show a stimulus for a set number of frames
+      obj.Outputs.frameMode = 0;
+      obj.Data.frameModeWaitOneMainLoop = -1;
+      % END FRAME CODE
+      
       % get global parameters & conditional parameters structs
       [~, globalStruct, allCondStruct] = toConditionServer(...
         exp.Parameters(paramStruct));
@@ -521,6 +532,11 @@ classdef SignalsExp < handle
       if obj.AsyncFlipping
         % wait for flip to complete, and record the time
         time = Screen('AsyncFlipEnd', obj.StimWindowPtr);
+
+        % FRAME CODE
+        post(obj.Inputs.frameTime,time);
+        % END FRAME CODE
+        
         obj.AsyncFlipping = false;
         time = fromPtb(obj.Clock, time); %convert ptb/sys time to our clock's time
 %         assert(obj.Data.stimWindowUpdateTimes(obj.StimWindowUpdateCount) == 0);
@@ -715,6 +731,26 @@ classdef SignalsExp < handle
           pause(0.25);
           checkInput(obj);
         end
+        
+        %% Check whether we are in frameMode
+        if obj.Outputs.frameMode > 0
+            % we are in frame mode, check whether a frame was just flipped
+            
+            % Check the frame count
+            [time] = Screen('AsyncFlipCheckEnd', obj.StimWindowPtr);
+            if time>0
+                post(obj.Inputs.frameTime,time);
+                
+                if time == obj.Data.frameModeWaitOneMainLoop
+                    % we did a pass through main loop already, set
+                    % stimWindowInvalid
+                    obj.StimWindowInvalid = true;
+                else
+                    obj.Data.frameModeWaitOneMainLoop = time;
+                end
+            end
+        end
+        
         %% create a list of handlers that have become due
         dueIdx = find([obj.Pending.dueTime] <= now(obj.Clock));
         ndue = length(dueIdx);
