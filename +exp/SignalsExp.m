@@ -181,8 +181,6 @@ classdef SignalsExp < handle
         @(x)((x-obj.Wheel.ZeroOffset) / (obj.Wheel.EncoderResolution*4))*360).skipRepeats();
       obj.Inputs.lick = net.origin('lick');
       obj.Inputs.keyboard = net.origin('keyboard');
-%       obj.Data.frameTime = net.origin('frame');
-%       obj.Inputs.frame = obj.Data.frameTime.skipRepeats.map(@(x) obj.Inputs.frame+1);
       % get global parameters & conditional parameters structs
       [~, globalStruct, allCondStruct] = toConditionServer(...
         exp.Parameters(paramStruct));
@@ -552,7 +550,6 @@ classdef SignalsExp < handle
       if obj.AsyncFlipping
         % wait for flip to complete, and record the time
         time = Screen('AsyncFlipEnd', obj.StimWindowPtr);
-%         post(obj.Data.frameTime,time);
         obj.AsyncFlipping = false;
         time = fromPtb(obj.Clock, time); %convert ptb/sys time to our clock's time
 %         assert(obj.Data.stimWindowUpdateTimes(obj.StimWindowUpdateCount) == 0);
@@ -747,12 +744,6 @@ classdef SignalsExp < handle
           pause(0.25);
           checkInput(obj);
         end
-        
-        %% Check the frame count
-% w        [time] = Screen('AsyncFlipCheckEnd', obj.StimWindowPtr);
-%         if time>0
-%             post(obj.Data.frameTime,time);
-%         end
         
         %% create a list of handlers that have become due
         dueIdx = find([obj.Pending.dueTime] <= now(obj.Clock));
