@@ -26,8 +26,10 @@ classdef ArduinoValveControl < handle
   end
   
   methods
-    function obj = ArduinoValveControl()
-        
+    function obj = ArduinoValveControl(portID)
+        if nargin>0
+            obj.serialPortID = portID;
+        end
         s = serial(obj.serialPortID,"BaudRate",obj.serialBaudRate);
         fopen(s);
         obj.serialObj = s;
