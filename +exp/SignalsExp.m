@@ -181,6 +181,15 @@ classdef SignalsExp < handle
         @(x)((x-obj.Wheel.ZeroOffset) / (obj.Wheel.EncoderResolution*4))*360).skipRepeats();
       obj.Inputs.lick = net.origin('lick');
       obj.Inputs.keyboard = net.origin('keyboard');
+      
+      % FRAME CODE
+      % setting frameMode to >0 will increment Outputs.frameMode by -1 until frameMode is 0.
+      % This lets you show a stimulus for a set number of frames
+%       obj.Inputs.frameTime = net.origin('frame');
+%       obj.Inputs.frame = obj.Inputs.frameTime.scan(@plus,0);
+%       obj.Data.frameMode = 0;
+      % END FRAME CODE
+      
       % get global parameters & conditional parameters structs
       [~, globalStruct, allCondStruct] = toConditionServer(...
         exp.Parameters(paramStruct));
@@ -189,7 +198,7 @@ classdef SignalsExp < handle
       % configure parameters signal
       obj.GlobalPars = net.origin('globalPars');
       obj.ConditionalPars = net.origin('condPars');
-      [obj.Params, hasNext, obj.Events.repeatNum] = exp.trialConditions(...
+      [obj.Params, hasNext, obj.Events.repeatNum] = exp.trialConditions(...Q
         obj.GlobalPars, obj.ConditionalPars, advanceTrial);
       obj.Events.trialNum = obj.Events.newTrial.scan(@plus, 0); % track trial number
       lastTrialOver = then(~hasNext, true);
@@ -744,6 +753,17 @@ classdef SignalsExp < handle
           pause(0.25);
           checkInput(obj);
         end
+        
+        %% FRAME CODE
+%         if obj.Data.frameMode>0
+%             [time] = Screen('AsyncFlipCheckEnd', obj.StimWindowPtr);
+%             if time>0
+%                 post(obj.Inputs.frameTime,1);
+%                 obj.Data.frameMode = max(0,obj.Data.frameMode - 1);
+%                 obj.StimWindowInvalid = true;
+%             end
+%         end
+        % END FRAME CODE
         
         %% create a list of handlers that have become due
         dueIdx = find([obj.Pending.dueTime] <= now(obj.Clock));
