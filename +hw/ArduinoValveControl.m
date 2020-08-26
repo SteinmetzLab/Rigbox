@@ -62,7 +62,11 @@ classdef ArduinoValveControl < handle
     end
     
     function dt = waveform(obj, ~, v)
+      if v>0
         dt = obj.pulseDuration(v);
+      else
+        dt = 0;
+      end
     end
     
     function output(obj,dt)
