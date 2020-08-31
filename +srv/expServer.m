@@ -144,12 +144,17 @@ while running
   % check for reward toggle
   if firstPress(rewardToggleKey) > 0
     log('Toggling reward valve');
-    curr = rig.daqController.Value(rewardId);
     sig = rig.daqController.SignalGenerators(rewardId);
-    if curr == sig.OpenValue
-      rig.daqController.Value(rewardId) = sig.ClosedValue;
+    if isa(sig, 'hw.ArduinoValveControl')
+        sig.output(1/1000); % output 1 ms to toggle an arduino valve controller
     else
-      rig.daqController.Value(rewardId) = sig.OpenValue;
+        curr = rig.daqController.Value(rewardId);
+
+        if curr == sig.OpenValue
+          rig.daqController.Value(rewardId) = sig.ClosedValue;
+        else
+          rig.daqController.Value(rewardId) = sig.OpenValue;
+        end
     end
   end
   
