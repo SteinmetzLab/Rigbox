@@ -12,7 +12,7 @@ int isOpen = 0;
 // so we know when licks start and stop
 uint16_t lasttouched = 0;
 uint16_t currtouched = 0;
-int LickOutPins[1] = {8}; //can add more pins if more electrodes connected
+int LickOutPin = 8; //can add more pins if more electrodes connected
 int delivering = 0;
 long offTime = 0;
 long currentTime;
@@ -21,10 +21,7 @@ void setup() {
   Serial.begin(9600); //establishes baud rate and opens serial port
   pinMode(solenoidPin, OUTPUT); //sets solenoid pin as output
   digitalWrite(solenoidPin, LOW);
-  
-  for (int count=1; count<2; count++){
-    pinMode(LickOutPins[count], OUTPUT);
-  }
+  pinMode(LickOutPin, OUTPUT);
 
   // Lickometer startup
   // Default address is 0x5A, if tied to 3.3V its 0x5B
@@ -87,12 +84,12 @@ void loop() {
   for (uint8_t i=1; i<2; i++) { //change the maximum i if more electrodes added
     // it if *is* touched and *wasnt* touched before, alert!
     if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
-      digitalWrite(LickOutPins[i], HIGH);
-      //Serial.print(millis()); Serial.print(" Lick on "); Serial.println(i);
+      digitalWrite(LickOutPin, HIGH);
+      Serial.print(millis()); Serial.print(" Lick on "); Serial.println(i);
     }
     // if it *was* touched and now *isnt*, alert!
     if (!(currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
-      digitalWrite(LickOutPins[i], LOW);
+      digitalWrite(LickOutPin, LOW);
       //Serial.print(millis()); Serial.print(" Lick off "); Serial.println(i);
     }
   }
