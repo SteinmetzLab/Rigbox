@@ -181,12 +181,19 @@ classdef SignalsExp < handle
         @(x)((x-obj.Wheel.ZeroOffset) / (obj.Wheel.EncoderResolution*4))*360).skipRepeats();
       obj.Inputs.lick = net.origin('lick');
       obj.Inputs.keyboard = net.origin('keyboard');
+      % Frame code
+      obj.Inputs.frameTime = net.origin('frameTime');
+      obj.Inputs.frame = obj.Inputs.frameTime.skipRepeats.scan(@(x,y) x+1,0);
+      obj.Data.frameModeWaitOneMainLoop = 0;
+      obj.Data.frameMode = 0;
+      obj.Data.frameModeSkipInvalid = false;
+      
       % get global parameters & conditional parameters structs
       [~, globalStruct, allCondStruct] = toConditionServer(...
         exp.Parameters(paramStruct));
       % start the first trial after expStart
       advanceTrial = net.origin('advanceTrial');
-      % configure parameters signal
+      % configure parameters signal 
       obj.GlobalPars = net.origin('globalPars');
       obj.ConditionalPars = net.origin('condPars');
       [obj.Params, hasNext, obj.Events.repeatNum] = exp.trialConditions(...
@@ -270,6 +277,14 @@ classdef SignalsExp < handle
         obj.LickDetector = rig.lickDetector;
         obj.LickDetector.zero();
       end
+      % check for frameMode Output
+      if isfield(obj.Outputs,'frameMode')
+            obj.Listeners = [obj.Listeners
+        obj.Outputs.frameMode.onValue(@(v)obj.setFrameMode(v))
+        obj.Outputs.frameMode.onValue(@(v)fprintf('frame mode set to %.2f frames\n', v))
+        ];   
+      end
+      
       if ~isempty(obj.DaqController.SignalGenerators)
           outputNames = fieldnames(obj.Outputs); % Get list of all outputs specified in expDef function
           for m = 1:length(outputNames)
@@ -299,6 +314,10 @@ classdef SignalsExp < handle
         abortList = ([obj.Pending.handler] == handler);
         [obj.Pending(abortList).isActive] = deal(false);
       end
+    end
+    
+    function setFrameMode(obj, value)
+        obj.Data.frameMode = value;
     end
     
     function startPhase(obj, name, time)
@@ -549,7 +568,7 @@ classdef SignalsExp < handle
       % complete any outstanding asynchronous flip
       if obj.AsyncFlipping
         % wait for flip to complete, and record the time
-        time = Screen('AsyncFlipEnd', obj.StimWindowPtr);
+        time = Screen('AsyncFlipEnd', obj.StimWindowPtr);        
         obj.AsyncFlipping = false;
         time = fromPtb(obj.Clock, time); %convert ptb/sys time to our clock's time
 %         assert(obj.Data.stimWindowUpdateTimes(obj.StimWindowUpdateCount) == 0);
@@ -745,6 +764,25 @@ classdef SignalsExp < handle
           checkInput(obj);
         end
         
+        %% FRAME MODE
+        if obj.Data.frameMode > 0 && ((obj.Data.frameModeWaitOneMainLoop==-1) || (obj.Data.frameModeWaitOneMainLoop==1))
+            % check if a frame was just flipped
+            time = Screen('AsyncFlipCheckEnd',obj.StimWindowPtr);
+            
+            if time > 0                
+                % a frame was flipped, push this to frameTime
+                % this will increment Inputs.frame by +1 but note that it
+                % will *only* do this when frameMode is on!!
+                post(obj.Inputs.frameTime,time);
+                if obj.Data.frameModeWaitOneMainLoop == -1
+                    obj.Data.frameModeSkipInvalid = true;
+                    obj.Data.frameMode = obj.Data.frameMode - 1;
+                    obj.Data.frameModeWaitOneMainLoop = 0;
+                end
+                
+            end
+        end
+        
         %% create a list of handlers that have become due
         dueIdx = find([obj.Pending.dueTime] <= now(obj.Clock));
         ndue = length(dueIdx);
@@ -801,10 +839,31 @@ classdef SignalsExp < handle
           renderTime = now(obj.Clock);
           % start the 'flip' of the frame onto the screen
           Screen('AsyncFlipBegin', obj.StimWindowPtr);
+          if obj.Data.frameMode > 0
+            % if we are in frame mode set up to be ready to run the main
+            % loop once after the next flip happens
+            obj.Data.frameModeWaitOneMainLoop = -1;
+          end
           obj.AsyncFlipping = true;
           obj.StimWindowUpdateCount = obj.StimWindowUpdateCount + 1;
           obj.Data.stimWindowRenderTimes(obj.StimWindowUpdateCount) = renderTime;
           obj.StimWindowInvalid = false;
+          obj.Data.frameModeSkipInvalid = false;
+        elseif obj.Data.frameModeSkipInvalid
+          drawFrame(obj);
+          if ~isempty(obj.SyncBounds) % render sync rectangle
+            % render sync region with next colour in cycle
+            flip = [2 1];
+            col = obj.SyncColourCycle(flip(obj.NextSyncIdx),:);
+            % render rectangle in the sync region bounds in the required colour
+            Screen('FillRect', obj.StimWindowPtr, col, obj.SyncBounds);
+            % cyclically increment the next sync idx
+%             obj.NextSyncIdx = mod(obj.NextSyncIdx, size(obj.SyncColourCycle, 1)) + 1;
+          end
+          
+          Screen('AsyncFlipBegin', obj.StimWindowPtr);
+          obj.Data.frameModeSkipInvalid = false;
+          obj.Data.frameModeWaitOneMainLoop = -1;
         end
         % make sure some minimum time passes before updating signals, to 
         % improve performance on MC
