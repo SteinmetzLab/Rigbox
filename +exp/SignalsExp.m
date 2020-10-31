@@ -184,9 +184,10 @@ classdef SignalsExp < handle
       % Frame code
       obj.Inputs.frameTime = net.origin('frameTime');
       obj.Inputs.frame = obj.Inputs.frameTime.skipRepeats.scan(@(x,y) x+1,0);
-      obj.Data.frameModeWaitOneMainLoop = 0;
       obj.Data.frameMode = 0;
-      obj.Data.frameModeSkipInvalid = false;
+      % this is used to re-draw the frame even when the stimwindow is not
+      % invalid:
+      obj.Data.frameModeDrawNextFrame = false;
       
       % get global parameters & conditional parameters structs
       [~, globalStruct, allCondStruct] = toConditionServer(...
@@ -765,7 +766,7 @@ classdef SignalsExp < handle
         end
         
         %% FRAME MODE
-        if obj.Data.frameMode > 0 && ((obj.Data.frameModeWaitOneMainLoop==-1) || (obj.Data.frameModeWaitOneMainLoop==1))
+        if obj.Data.frameMode > 0
             % check if a frame was just flipped
             time = Screen('AsyncFlipCheckEnd',obj.StimWindowPtr);
             
@@ -774,12 +775,9 @@ classdef SignalsExp < handle
                 % this will increment Inputs.frame by +1 but note that it
                 % will *only* do this when frameMode is on!!
                 post(obj.Inputs.frameTime,time);
-                if obj.Data.frameModeWaitOneMainLoop == -1
-                    obj.Data.frameModeSkipInvalid = true;
-                    obj.Data.frameMode = obj.Data.frameMode - 1;
-                    obj.Data.frameModeWaitOneMainLoop = 0;
-                end
                 
+                obj.Data.frameModeDrawNextFrame = true;
+                obj.Data.frameMode = obj.Data.frameMode - 1;        
             end
         end
         
@@ -839,17 +837,12 @@ classdef SignalsExp < handle
           renderTime = now(obj.Clock);
           % start the 'flip' of the frame onto the screen
           Screen('AsyncFlipBegin', obj.StimWindowPtr);
-          if obj.Data.frameMode > 0
-            % if we are in frame mode set up to be ready to run the main
-            % loop once after the next flip happens
-            obj.Data.frameModeWaitOneMainLoop = -1;
-          end
           obj.AsyncFlipping = true;
           obj.StimWindowUpdateCount = obj.StimWindowUpdateCount + 1;
           obj.Data.stimWindowRenderTimes(obj.StimWindowUpdateCount) = renderTime;
           obj.StimWindowInvalid = false;
-          obj.Data.frameModeSkipInvalid = false;
-        elseif obj.Data.frameModeSkipInvalid
+          obj.Data.frameModeDrawNextFrame = false;
+        elseif obj.Data.frameModeDrawNextFrame
           drawFrame(obj);
           if ~isempty(obj.SyncBounds) % render sync rectangle
             % render sync region with next colour in cycle
@@ -862,8 +855,7 @@ classdef SignalsExp < handle
           end
           
           Screen('AsyncFlipBegin', obj.StimWindowPtr);
-          obj.Data.frameModeSkipInvalid = false;
-          obj.Data.frameModeWaitOneMainLoop = -1;
+          obj.Data.frameModeDrawNextFrame = false;
         end
         % make sure some minimum time passes before updating signals, to 
         % improve performance on MC
