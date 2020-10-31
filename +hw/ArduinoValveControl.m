@@ -62,7 +62,14 @@ classdef ArduinoValveControl < handle
     end
     
     function dt = waveform(obj, ~, v)
-      if v>0
+        
+      if numel(v)>1
+          % if we get an array, this is the special mode (used by reward
+          % calibration) where we're going to send a bunch of commands in a
+          % row. We don't want to do anything to those values here - we
+          % just send them back so they will get passed to 'output' below
+          dt = v;                  
+      elseif v>0
         dt = obj.pulseDuration(v);
       else
         dt = 0;
@@ -71,7 +78,18 @@ classdef ArduinoValveControl < handle
     
     function output(obj,dt)
         if iscell(dt); dt = dt{1}; end
-        fprintf(obj.serialObj,sprintf('%i',round(dt*1000)));
+        
+        if numel(dt)==1
+            fprintf(obj.serialObj,sprintf('%i',round(dt*1000)));
+        else
+            % if we have multiple entries in dt we need to do a series of
+            % outputs
+            t = dt(1); interval = dt(2); n = dt(3); 
+            for ii = 1:n
+                fprintf(obj.serialObj,sprintf('%i',round(t*1000)));
+                pause(interval+t);
+            end
+        end
     end
     
     function delete(obj)
