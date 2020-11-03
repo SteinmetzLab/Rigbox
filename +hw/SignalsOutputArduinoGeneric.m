@@ -33,8 +33,7 @@ classdef SignalsOutputArduinoGeneric < hw.SignalsOutput
         if ischar(v)
             fprintf(obj.serialObj,v);
         elseif isnumeric(v)
-            fprintf(obj.serialObj,sprintf('%i',round(v)));
-            %fprintf(obj.serialObj,sprintf('%i',num2str(v)));
+            fprintf(obj.serialObj,sprintf('%i',num2str(v)));
         elseif iscell(v)
             fprintf(obj.serialObj,sprintf('%s',v{1}));
         end
