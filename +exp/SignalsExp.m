@@ -258,52 +258,64 @@ classdef SignalsExp < handle
     end
     
     function useRig(obj, rig)
-      obj.Clock = rig.clock;
-      obj.Data.rigName = rig.name;
-      obj.SyncBounds = rig.stimWindow.SyncBounds;
-      obj.SyncColourCycle = rig.stimWindow.SyncColourCycle;
-      obj.NextSyncIdx = 1;
-      obj.StimWindowPtr = rig.stimWindow.PtbHandle;
-      obj.Occ = vis.init(obj.StimWindowPtr);
-      if isfield(rig, 'screens')
-        obj.Occ.screens = rig.screens;
-      else
-        warning('Rigbox:exp:SignalsExp:NoScreenConfig', ...
-          'No screen configuration specified. Visual locations will be wrong.');
-      end
-      obj.DaqController = rig.daqController;
-      obj.Wheel = rig.mouseInput;
-      obj.Wheel.zero();
-      if isfield(rig, 'lickDetector')
-        obj.LickDetector = rig.lickDetector;
-        obj.LickDetector.zero();
-      end
-      % check for frameMode Output
-      if isfield(obj.Outputs,'frameMode')
+        obj.Clock = rig.clock;
+        obj.Data.rigName = rig.name;
+        obj.SyncBounds = rig.stimWindow.SyncBounds;
+        obj.SyncColourCycle = rig.stimWindow.SyncColourCycle;
+        obj.NextSyncIdx = 1;
+        obj.StimWindowPtr = rig.stimWindow.PtbHandle;
+        obj.Occ = vis.init(obj.StimWindowPtr);
+        if isfield(rig, 'screens')
+            obj.Occ.screens = rig.screens;
+        else
+            warning('Rigbox:exp:SignalsExp:NoScreenConfig', ...
+                'No screen configuration specified. Visual locations will be wrong.');
+        end
+        obj.DaqController = rig.daqController;
+        obj.Wheel = rig.mouseInput;
+        obj.Wheel.zero();
+        if isfield(rig, 'lickDetector')
+            obj.LickDetector = rig.lickDetector;
+            obj.LickDetector.zero();
+        end
+        % check for frameMode Output
+        if isfield(obj.Outputs,'frameMode')
             obj.Listeners = [obj.Listeners
-        obj.Outputs.frameMode.onValue(@(v)obj.setFrameMode(v))
-        obj.Outputs.frameMode.onValue(@(v)fprintf('frame mode set to %.2f frames\n', v))
-        ];   
-      end
-      
-      if ~isempty(obj.DaqController.SignalGenerators)
-          outputNames = fieldnames(obj.Outputs); % Get list of all outputs specified in expDef function
-          for m = 1:length(outputNames)
-              id = find(strcmp(outputNames{m},...
-                  obj.DaqController.ChannelNames)); % Find matching channel from rig hardware file
-              if id % if the output is present, create callback 
-                  obj.Listeners = [obj.Listeners
+                obj.Outputs.frameMode.onValue(@(v)obj.setFrameMode(v))
+                obj.Outputs.frameMode.onValue(@(v)fprintf('frame mode set to %.2f frames\n', v))
+                ];
+        end
+        
+        outputNames = fieldnames(obj.Outputs); % Get list of all outputs specified in expDef function
+        for m = 1:length(outputNames)
+            
+            % determine whether the output corresponds to a channel in
+            % DaqController
+            if ~isempty(obj.DaqController.SignalGenerators)
+                id = find(strcmp(outputNames{m},...
+                    obj.DaqController.ChannelNames)); % Find matching channel from rig hardware file
+            else
+                id = false;
+            end
+            
+            if id % if the output is present in daqController, create callback
+                obj.Listeners = [obj.Listeners
                     obj.Outputs.(outputNames{m}).onValue(@(v)obj.DaqController.command([zeros(size(v,1),id-1) v])) % pad value with zeros in order to output to correct channel
                     obj.Outputs.(outputNames{m}).onValue(@(v)fprintf('delivering output of %.2f\n',v))
-                    ];   
-              elseif strcmp(outputNames{m}, 'reward') % special case; rewardValve is always first signals generator in list 
-                  obj.Listeners = [obj.Listeners
+                    ];
+            elseif strcmp(outputNames{m}, 'reward') % special case; rewardValve is always first signals generator in list
+                obj.Listeners = [obj.Listeners
                     obj.Outputs.reward.onValue(@(v)obj.DaqController.command(v))
                     obj.Outputs.reward.onValue(@(v)fprintf('delivering reward of %.2f\n', v))
-                    ];   
-              end
-          end
-      end
+                    ];
+            elseif isfield(rig, 'signalsOutputs') && isfield(rig.signalsOutputs, outputNames{m})
+                % this one exists as a signalsOutput class
+                obj.Listeners = [obj.Listeners
+                    obj.Outputs.(outputNames{m}).onValue(@(v)rig.signalsOutputs.(outputNames{m}).command(v))
+                    obj.Outputs.(outputNames{m}).onValue(@(v)fprintf('sending %s to %s\n',num2str(v),outputNames{m}))
+                    ];
+            end
+        end
     end
 
     function abortPendingHandlers(obj, handler)
