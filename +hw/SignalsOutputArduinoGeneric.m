@@ -7,7 +7,7 @@ classdef SignalsOutputArduinoGeneric < hw.SignalsOutput
   % 2020-11 NS
   
   properties
-    serialPortID = 'COM7'; 
+    serialPortID = 'COM1'; 
     serialBaudRate = 9600;
     serialObj
   end
@@ -33,15 +33,20 @@ classdef SignalsOutputArduinoGeneric < hw.SignalsOutput
         if ischar(v)
             fprintf(obj.serialObj,v);
         elseif isnumeric(v)
-            fprintf(obj.serialObj,sprintf('%s',num2str(v)));
+            fprintf(obj.serialObj,sprintf('%i',round(v)));
+            %fprintf(obj.serialObj,sprintf('%i',num2str(v)));
         elseif iscell(v)
             fprintf(obj.serialObj,sprintf('%s',v{1}));
         end
     end
     
     function delete(obj)
-        fclose(obj.serialObj);
-        delete(obj.serialObj);
+        
+        if ~isempty(obj.serialObj)
+            fclose(obj.serialObj);
+            delete(obj.serialObj);
+        end
+        
     end
   end
   

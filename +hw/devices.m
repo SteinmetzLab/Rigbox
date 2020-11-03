@@ -89,6 +89,15 @@ end
 
 rig.paths = paths;
 
+%% Signals Outputs
+
+if isfield(rig, 'signalsOutputs')
+    outputNames = fieldnames(rig.signalsOutputs); % Get list of all outputs specified in expDef function
+    for m = 1:length(outputNames)
+        rig.signalsOutputs.(outputNames{m}).init();
+    end
+end
+
 %% Helper function
   function configure(deviceName, usedaq)
     if isfield(rig, deviceName)
