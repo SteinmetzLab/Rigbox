@@ -685,10 +685,7 @@ classdef AlyxPanel < handle
                     expected_weight = getOr(record, 'expected_weight', NaN);
                     % Set colour based on weight percentage
                     weight_pct = (weight-wr.implant_weight)/(expected_weight-wr.implant_weight);
-                    if water > obj.round(s(idx).expected_water,'up')
-                        colour = [39 134 39]/255;
-                        suggest_str = '';
-                    elseif weight_pct < 0.8 % Mouse below 70% original weight
+                    if weight_pct < 0.8 % Mouse below 70% original weight
                         colour = 'red';
                         suggest_str = ', provide extra +1.0ml';
                     elseif weight_pct < 0.82
@@ -704,7 +701,9 @@ classdef AlyxPanel < handle
                     % Round up water remaining to the near 0.01
                     remainder = obj.round(s(idx).remaining_water, 'up');
                     remainder_str = sprintf('water provided %.2f/%.2f today',water,obj.round(s(idx).expected_water,'up'));
-                    
+                    if water > obj.round(s(idx).expected_water,'up')
+                        colour = [39 134 39]/255;
+                    end
                     % Set text
                     set(obj.WaterRequiredText, 'ForegroundColor', colour, 'String', ...
                         sprintf('Subject %s (weight: %.2f, %2.f%%) %s%s', obj.Subject, ...
