@@ -33,6 +33,12 @@ if ~isempty(rampDuration)
 end
 
 % repeat samples across all channels
-samples = repmat(samples, nAudChannels, 1);
+if length(nAudChannels)>1
+    disp(nAudChannels)
+    samples_ = zeros(length(nAudChannels),length(samples));
+    samples_(nAudChannels>0,:) = samples;
+    samples = samples_;
+else
+    samples = repmat(samples, nAudChannels, 1);
 end
 
