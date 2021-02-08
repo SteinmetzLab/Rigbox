@@ -34,7 +34,6 @@ end
 
 % repeat samples across all channels
 if length(nAudChannels)>1
-    disp(nAudChannels)
     samples_ = zeros(length(nAudChannels),length(samples));
     samples_(nAudChannels>0,:) = repmat(samples,sum(nAudChannels>0),1);
     samples = samples_;
