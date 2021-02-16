@@ -19,8 +19,10 @@ classdef SignalsOutputArduinoGalvo < hw.SignalsOutput
   
   
   methods
-    function obj = SignalsOutputArduinoGalvo(name)
-      
+    function obj = SignalsOutputArduinoGalvo(name, sID)
+        if ~isempty(sID)
+          obj.serialPortID = sID;
+        end
         obj.Name = name;        
         
     end
