@@ -98,6 +98,15 @@ if isfield(rig, 'signalsOutputs')
     end
 end
 
+%% Signals inputs, aka customInputs
+
+if isfield(rig, 'customInputs')
+    inputNames = fieldnames(rig.customInputs); % Get list of all outputs specified in expDef function
+    for m = 1:length(inputNames)
+        rig.customInputs.(inputNames{m}).init();
+    end
+end
+
 %% Helper function
   function configure(deviceName, usedaq)
     if isfield(rig, deviceName)

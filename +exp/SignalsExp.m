@@ -58,6 +58,10 @@ classdef SignalsExp < handle
     % HW.DAQEDGECOUNTER
     LickDetector
     
+    % custom inputs which implement a "query" function and are found in
+    % rig.customInputs. 
+    customInputs
+    
     % Holds the object for interating with the DAQ outputs (reward valve,
     % etc.)  See also HW.DAQCONTROLLER
     DaqController
@@ -277,6 +281,9 @@ classdef SignalsExp < handle
         if isfield(rig, 'lickDetector')
             obj.LickDetector = rig.lickDetector;
             obj.LickDetector.zero();
+        end
+        if isfield(rig, 'customInputs')
+            obj.customInputs = rig.customInputs;
         end
         % check for frameMode Output
         if isfield(obj.Outputs,'frameMode')
@@ -825,6 +832,16 @@ classdef SignalsExp < handle
             fprintf('lick count now %i\n', nlicks);
           end
         end
+        if ~isempty(obj.customInputs)
+            fn = fieldnames(obj.customInputs); 
+            for fidx = 1:numel(fn)
+                q = obj.customInputs.(fn{fidx}).query;
+                if ~isempty(q)
+                    post(obj.Inputs.(fn{fidx}), q); 
+                end
+            end
+        end
+        
         post(obj.Time, now(obj.Clock));
         runSchedule(obj.Net);
         
