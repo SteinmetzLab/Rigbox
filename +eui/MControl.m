@@ -252,6 +252,7 @@ classdef MControl < handle
       subject = obj.NewExpSubject.Selected; % Find which subject is selected
       label = 'none';
       set(obj.BeginExpButton, 'Enable', 'off') % Can't run experiment without params!
+      paramsLoaded = false;
       switch lower(profile)
         case '<defaults>'
           %           if strcmp(obj.NewExpType.Selected, '<custom...>')
@@ -279,6 +280,7 @@ classdef MControl < handle
           if ~isempty(paramStruct) % found one
             paramStruct.type = typeNameFinal; % override type name with preferred
             label = sprintf('from last experiment of %s (%s)', subject, ref);
+            paramsLoaded = true;
           end
         otherwise
           label = profile;
@@ -292,6 +294,52 @@ classdef MControl < handle
         %set that field
         paramStruct = rmfield(paramStruct, 'services');
       end
+      
+      % change rewardValue based on the mouse's previous total reward
+
+      % if we loaded the params, then lets also load rewardSize info if the
+      % params include a rewardSizeRange parameter
+      if paramsLoaded && isfield(paramStruct,'rewardSize') && isfield(paramStruct,'rewardSizeRange')
+        disp('(mc) Calculating reward size from previous day');
+        rewardSizeRange = paramStruct.rewardSizeRange;
+        curRewardSize = paramStruct.rewardSize;
+        
+        % find the water restriction information for the current mouse
+        ai = obj.AlyxPanel.AlyxInstance;
+        subj = obj.NewExpSubject.Selected;
+        str = sprintf('http://alyx.steinmetzlab.net/water-requirement/%s',subj);
+        wr = ai.getData(str);
+        % find the previous day that had a water reward given
+        prevDay = [];
+        for i = length(wr.records):-1:1
+            prevDay = wr.records(end-1);
+            if prevDay.given_water_reward>0
+                break
+            end
+        end
+            
+        if ~isempty(prevDay)
+            prevDay = wr.records(end-1);
+            disp('(mc) Found previous training day record');
+            if prevDay.given_water_supplement == 0
+                % no additional water was given
+                newRewardSize = curRewardSize-0.1;
+                disp('(mc) Decreasing reward size');
+            else
+                % additional water was given
+                newRewardSize = curRewardSize+0.1;
+                disp('(mc) Increasing reward size');
+            end
+            if newRewardSize<rewardSizeRange(1)
+                newRewardSize = rewardSizeRange(1);
+            end
+            if newRewardSize>rewardSizeRange(2)
+                newRewardSize = rewardSizeRange(2);
+            end
+            paramStruct.rewardSize = newRewardSize;
+        end
+      end
+      
       obj.Parameters.Struct = paramStruct;
       if isempty(paramStruct); return; end
       % Now parameters are loaded, pass to ParamEditor for display, etc.
