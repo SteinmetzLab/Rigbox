@@ -319,9 +319,8 @@ classdef MControl < handle
         end
             
         if ~isempty(prevDay)
-            prevDay = wr.records(end-1);
             disp('(mc) Found previous training day record');
-            if prevDay.given_water_supplement == 0
+            if prevDay.given_water_supplement <= 0.01
                 % no additional water was given
                 newRewardSize = curRewardSize-0.1;
                 disp('(mc) Decreasing reward size');
