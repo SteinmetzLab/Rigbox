@@ -320,13 +320,13 @@ classdef MControl < handle
             
         if ~isempty(prevDay)
             disp('(mc) Found previous training day record');
-            if prevDay.given_water_supplement <= 0.01
+            if prevDay.given_water_supplement <= 0.05
                 % no additional water was given
                 newRewardSize = curRewardSize-0.1;
                 disp('(mc) Decreasing reward size');
             else
                 % additional water was given
-                newRewardSize = curRewardSize+0.1;
+                newRewardSize = curRewardSize+0.05;
                 disp('(mc) Increasing reward size');
             end
             if newRewardSize<rewardSizeRange(1)
