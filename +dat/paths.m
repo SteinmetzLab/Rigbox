@@ -13,7 +13,8 @@ if nargin < 1 || isempty(rig)
   rig = thishost;
 end
 
-server1Name = '\\steinmetzsuper1.biostr.washington.edu\data\';
+% server1Name = '\\steinmetzsuper1.biostr.washington.edu\data\';
+server1Name = '\\sahale.biostr.washington.edu\data\';
 
 
 %% defaults
