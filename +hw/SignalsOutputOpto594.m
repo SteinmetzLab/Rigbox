@@ -1,4 +1,4 @@
-classdef SignalsOutputOpto594 < SignalsOutputOpto
+classdef SignalsOutputOpto594 < hw.SignalsOutputOpto
   %SIGNALSOUTPUTOPTO594  594 nm (orange) laser on AO3.
   %
   % See also HW.SIGNALSOUTPUTOPTO, HW.SIGNALSOUTPUTOPTO638
@@ -10,7 +10,7 @@ classdef SignalsOutputOpto594 < SignalsOutputOpto
 
   methods
     function obj = SignalsOutputOpto594(name, devID)
-        obj@SignalsOutputOpto(name, devID);
+        obj@hw.SignalsOutputOpto(name, devID);
     end
   end
 
