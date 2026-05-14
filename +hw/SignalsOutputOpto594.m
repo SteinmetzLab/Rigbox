@@ -1,0 +1,17 @@
+classdef SignalsOutputOpto594 < SignalsOutputOpto
+  %SIGNALSOUTPUTOPTO594  594 nm (orange) laser on AO3.
+  %
+  % See also HW.SIGNALSOUTPUTOPTO, HW.SIGNALSOUTPUTOPTO638
+
+  properties (Constant)
+    laserAOChannel = 'ao3';
+    laserCalibFile = 'laserModCalib594.mat';
+  end
+
+  methods
+    function obj = SignalsOutputOpto594(name, devID)
+        obj@SignalsOutputOpto(name, devID);
+    end
+  end
+
+end
