@@ -312,7 +312,7 @@ classdef SignalsExp < handle
                 % this one exists as a signalsOutput class
                 obj.Listeners = [obj.Listeners
                     obj.Outputs.(outputNames{m}).onValue(@(v)rig.signalsOutputs.(outputNames{m}).command(v))
-                    obj.Outputs.(outputNames{m}).onValue(@(v)fprintf('sending %s to %s\n',num2str(v),outputNames{m}))
+                    obj.Outputs.(outputNames{m}).onValue(@(v)fprintf('sending %s to %s\n',toStr(v),outputNames{m}))
                     ];
             end
         end
