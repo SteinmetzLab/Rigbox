@@ -258,9 +258,9 @@ classdef SignalsOutputOptoTwoSpots_test < matlab.unittest.TestCase
         end
 
         function matchesLegacyCycle(tc)
-            % Per cycle, the same pulses as hw.SignalsOutputGalvoOptoTwoSpots:
+            % Per cycle, the same pulses as hw.SignalsOutputGalvoOptoTwoSpots_legacy:
             % 500 samples at each spot, at peak amplitude, galvo still.
-            legacy = hw.SignalsOutputGalvoOptoTwoSpots('legacy', 'Dev3');
+            legacy = hw.SignalsOutputGalvoOptoTwoSpots_legacy('legacy', 'Dev3');
             [lLas, lgx, lgy] = legacy.genWaveforms(1, 0.3, [1.5 -2.5], [1 -3], 0);
             [nLas, ngx, ngy] = tc.gen('duration', 0.3);
             tc.verifyEqual(sum(lLas), sum(nLas));  % same total on-time at peak

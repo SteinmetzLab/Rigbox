@@ -1,4 +1,7 @@
-classdef SignalsOutputGalvoOpto < hw.SignalsOutput
+classdef SignalsOutputGalvoOptoOrange_legacy < hw.SignalsOutput
+  % LEGACY (retired 2026-10-05): kept so old Blocks and expdefs can be read and rerun
+  % if needed. Do not add to a rig's hardware.mat. New experiments use hw.SignalsOutputOpto638/594
+  % or hw.SignalsOutputOptoTwoSpots638/594, which reload calibrations at each experiment start.
   %HW.SignalsOutputArduinoGeneric 
   %
   % See also HW.SignalsOutput
@@ -20,7 +23,7 @@ classdef SignalsOutputGalvoOpto < hw.SignalsOutput
   end
   
   methods
-    function obj = SignalsOutputGalvoOpto(name,devID)
+    function obj = SignalsOutputGalvoOptoOrange_legacy(name,devID)
       
         obj.Name = name;        
         obj.devID = devID;
@@ -29,14 +32,14 @@ classdef SignalsOutputGalvoOpto < hw.SignalsOutput
 
     function init(obj)
         newS = daq.createSession('ni');
-        newS.addAnalogOutputChannel(obj.devID, 'ao0', 'Voltage');
         newS.addAnalogOutputChannel(obj.devID, 'ao1', 'Voltage');
         newS.addAnalogOutputChannel(obj.devID, 'ao2', 'Voltage');
+        newS.addAnalogOutputChannel(obj.devID, 'ao3', 'Voltage');
         newS.Rate = obj.rate;
         obj.s = newS;
         
         % look for calibration factors to load (otherwise keeping defaults)
-        mWperVfile = fullfile(obj.calibDir, 'laserModCalib', 'laserModCalib638.mat');
+        mWperVfile = fullfile(obj.calibDir, 'laserModCalib', 'laserModCalib594.mat');
         if isfile(mWperVfile)
             xx = load(mWperVfile);
             obj.VmWSlope = xx.calibSlope;
@@ -109,7 +112,7 @@ classdef SignalsOutputGalvoOpto < hw.SignalsOutput
         
         [galvoX, galvoY] = obj.calib_GalvoPos(galvoX, galvoY); 
         
-        s.queueOutputData([laser galvoX galvoY]);
+        s.queueOutputData([galvoX galvoY laser]);
         s.startBackground();
 %         s.wait();
 %         s.stop();

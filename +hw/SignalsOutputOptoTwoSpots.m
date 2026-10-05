@@ -48,13 +48,13 @@ classdef SignalsOutputOptoTwoSpots < hw.SignalsOutputOpto
   %     moveDur - (s, default 0.006) raised-cosine galvo move between spots
   %     laserRampDur - (s, default 0) raised-cosine ramp at each pulse edge,
   %         inside pulseDur. 0 gives square pulses, as in the legacy
-  %         hw.SignalsOutputGalvoOptoTwoSpots. A ramp lowers each pulse's
+  %         hw.SignalsOutputGalvoOptoTwoSpots_legacy. A ramp lowers each pulse's
   %         energy: a ramp of r on both edges delivers (pulseDur - r) at peak
   %         power instead of pulseDur.
   %     galvoRampDur - (s, default 0.002) galvo ramp from bregma to spot 1
   %         at the start and from spot 1 back to bregma at the end
   %
-  % Differences from the legacy hw.SignalsOutputGalvoOptoTwoSpots:
+  % Differences from the legacy hw.SignalsOutputGalvoOptoTwoSpots_legacy:
   %   - Spot 1 is pulsed first. The legacy class began moving at once and
   %     pulsed its second spot (galvoPos2x, galvoPos2y) first, 6 ms in.
   %   - The galvo reaches spot 1 and waits before the first pulse.

@@ -1,4 +1,7 @@
-classdef SignalsOutputGalvoOptoCircle < hw.SignalsOutput
+classdef SignalsOutputGalvoOptoTwoSpots_legacy < hw.SignalsOutput
+  % LEGACY (retired 2026-10-05): kept so old Blocks and expdefs can be read and rerun
+  % if needed. Do not add to a rig's hardware.mat. New experiments use hw.SignalsOutputOpto638/594
+  % or hw.SignalsOutputOptoTwoSpots638/594, which reload calibrations at each experiment start.
   %HW.SignalsOutputArduinoGeneric 
   %
   % See also HW.SignalsOutput
@@ -18,11 +21,13 @@ classdef SignalsOutputGalvoOptoCircle < hw.SignalsOutput
     bregmaOffset_Y = 0; 
     calibDir = '\\sahale.biostr.washington.edu\data\Code\Rigging\optoGalvo\calib\';
   end
-    
+  
   methods
-    function obj = SignalsOutputGalvoOptoCircle(name,devID)
+    function obj = SignalsOutputGalvoOptoTwoSpots_legacy(name,devID)
+      
         obj.Name = name;        
         obj.devID = devID;
+        
     end
 
     function init(obj)
@@ -73,35 +78,28 @@ classdef SignalsOutputGalvoOptoCircle < hw.SignalsOutput
         
         % extract the specified parameters
         laserAmp = v(1);
-        laserDelay = v(2);
-        circleDurS = v(3);
-        nCircles = v(4);
-        circleCenterX = v(5);
-        circleCenterY = v(6);
-        circleRadius = v(7);
-        circleCW = v(8);
+        laserDurS = v(2);
+        galvoPos1x = v(3);
+        galvoPos1y = v(4);
+        galvoPos2x = v(5);
+        galvoPos2y = v(6);
         
-        fprintf(1, 'Laser on %2.1fV %3.2f revlutions. CW(bool) %2.1f.', ...
-            laserAmp, nCircles, circleCW); 
-
-        % 0.001 for time to turn laser off
-        laserDurS = circleDurS * nCircles;
-        laserDurSamps = laserDurS * rate;
-        trialTimeS = laserDelay + laserDurS + 0.001;
-
+        galvoPos1 = [galvoPos1x, galvoPos2x]; % both x coords
+        galvoPos2 = [galvoPos1y, galvoPos2y]; % both y coords
+        
+        trialTimeS = laserDurS;
         % convert into NI samples
-        delayTimeSamps = round(laserDelay*rate);
         trialTimeSamps = round(trialTimeS*rate);
 
         % create the waveforms for each component
         laserAmp_V = (laserAmp-obj.VmWIntercept)/obj.VmWSlope; % convert mW input to V
-        laser = obj.genLaser(laserAmp_V, laserDurSamps, trialTimeSamps, delayTimeSamps);
         
+        [laser, galvoX, galvoY] = obj.genWaveforms(laserAmp_V, laserDurS, galvoPos1, galvoPos2, trialTimeSamps);
+        [galvoX, galvoY] = obj.calib_GalvoPos(galvoX, galvoY);
         
-        [galvoX, galvoY] = obj.genXYGalvo(trialTimeSamps, delayTimeSamps, circleCenterX, circleCenterY, laserDurS, circleDurS, circleRadius, circleCW);
-        [galvoX, galvoY] = obj.calib_GalvoPos(galvoX, galvoY); 
         s.queueOutputData([laser galvoX galvoY]);
         s.startBackground();
+        
     end
     
     function delete(obj)
@@ -110,10 +108,64 @@ classdef SignalsOutputGalvoOptoCircle < hw.SignalsOutput
         clear s; 
     end
     
-    function waveform = genLaser(obj, laserAmp, laserDurSamps, trialTimeSamps, delayTimeSamps)
+    function [laser, galvoX, galvoY] = genWaveforms(obj, laserAmp, laserDur, ...
+            galvoPos1, galvoPos2, trialTimeSamps)
+        
         rate = obj.rate;
+        laserDurSamps = laserDur * rate;
         waveform = zeros(trialTimeSamps, 1);
-        waveform(delayTimeSamps:delayTimeSamps+laserDurSamps) = laserAmp; 
+        
+        lasOnDur = 0.005; % s, time ON at each spot
+        pRate = 40; % hz
+        cycleDur = 1/pRate; % s
+        moveDur = 0.006; % s
+
+        tMove = (0:1/obj.rate:moveDur)';
+        halfCos = (-cos(pi*tMove/moveDur)+1)/2;
+        moveSamps = numel(halfCos); 
+
+        % step 1: move to first position
+        gx = halfCos*diff(galvoPos1)+galvoPos1(1);
+        gy = halfCos*diff(galvoPos2)+galvoPos2(1);
+        las = zeros(moveSamps,1); 
+
+        % step 2: laser on
+        lasSamps = lasOnDur*obj.rate;
+        gx = [gx; galvoPos1(2)*ones(lasSamps,1)];
+        gy = [gy; galvoPos2(2)*ones(lasSamps,1)];
+        las = [las; laserAmp*ones(lasSamps,1)];
+
+        % step 3: wait until next move
+        waitDur = (cycleDur-2*moveDur-2*lasOnDur)/2;
+        waitSamps = round(waitDur*obj.rate);
+        gx = [gx; galvoPos1(2)*ones(waitSamps,1)];
+        gy = [gy; galvoPos2(2)*ones(waitSamps,1)];
+        las = [las; zeros(waitSamps,1)];
+
+        % step 4: move to second position
+        gx = [gx; flipud(halfCos*diff(galvoPos1)+galvoPos1(1))];
+        gy = [gy; flipud(halfCos*diff(galvoPos2)+galvoPos2(1))];
+        las = [las; zeros(moveSamps,1)];
+
+        % step 5: laser on
+        gx = [gx; galvoPos1(1)*ones(lasSamps,1)];
+        gy = [gy; galvoPos2(1)*ones(lasSamps,1)];
+        las = [las; laserAmp*ones(lasSamps,1)];
+
+        % step 6: wait again
+        gx = [gx; galvoPos1(1)*ones(waitSamps,1)];
+        gy = [gy; galvoPos2(1)*ones(waitSamps,1)];
+        las = [las; zeros(waitSamps,1)];
+
+        % repeat cycle
+        nCycle = laserDur*pRate;
+        gx = repmat(gx,nCycle, 1);
+        gy = repmat(gy,nCycle, 1);
+        las = repmat(las,nCycle, 1);
+        
+        laser = las;
+        galvoX = gx;
+        galvoY = gy;
     end
     
     function [galvoX, galvoY] = calib_GalvoPos(obj, galvoX, galvoY)
@@ -121,36 +173,6 @@ classdef SignalsOutputGalvoOptoCircle < hw.SignalsOutput
         galvoY = galvoY/obj.mmPerV_Y + obj.bregmaOffset_Y;
     end
     
-    function [waveformX, waveformY] = genXYGalvo(obj, trialTimeSamps, delayTimeSamps, circleCenterX, circleCenterY, laserDurS, circleDurS, circleRadius, circleCW)
-        rate = obj.rate;
-        dt = 1/rate; 
-        laserDurSamps = laserDurS * rate;
-        t = (0:dt:laserDurS)'; 
-        
-        F = 1/circleDurS; % one full circle turn is one period
-        
-        % same whether CW or CCW
-        y = circleCenterY + (circleRadius * cos(2*pi*F*t));
-        
-        % x has a phase shift of pi if CW - note that Y is inverted
-        % because a higher voltage in Y is more posterior
-        if circleCW == 0 % only a pi phase shift in x
-            x = circleCenterX + (circleRadius * sin(2*pi*F*t));
-        elseif circleCW == 1
-            x = circleCenterX + (circleRadius * sin(2*pi*F*t+pi));
-        end
-
-        waveformX = zeros(trialTimeSamps, 1);
-        waveformY = zeros(trialTimeSamps, 1);
-        waveformX(delayTimeSamps:delayTimeSamps+laserDurSamps) = x;
-        waveformY(delayTimeSamps:delayTimeSamps+laserDurSamps) = y;
-        
-        % set last entry to 0 to reset galvos
-        waveformX(end) = 0;
-        waveformY(end) = 0;
-        
-    end
-
   end
   
 end
