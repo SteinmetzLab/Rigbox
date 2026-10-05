@@ -58,35 +58,78 @@ classdef SignalsOutputOpto < hw.SignalsOutput
         newS.Rate = obj.rate;
         obj.s = newS;
 
-        % laser power calibration (per-subclass file)
-        mWperVfile = fullfile(obj.calibDir, 'laserModCalib', obj.laserCalibFile);
-        if isfile(mWperVfile)
-            xx = load(mWperVfile);
-            obj.VmWSlope = xx.calibSlope;
-            obj.VmWIntercept = xx.calibIntercept;
+        % Load at launch so the object is usable, but exp.SignalsExp loads
+        % again at each experiment start (strictly), so a calibration saved
+        % while expServer is open is the one the experiment uses.
+        obj.loadCalibration(false);
+    end
+
+    function loadCalibration(obj, strict)
+        %LOADCALIBRATION  Reads the laser power and galvo calibrations from calibDir.
+        %
+        %   loadCalibration(obj, true) errors if any file is missing or
+        %   malformed, and then changes nothing. exp.SignalsExp calls it this
+        %   way at each experiment start, so an experiment never runs on
+        %   default (identity) calibrations: those turn a request for 5 mW
+        %   into 5 V, full scale.
+        %
+        %   loadCalibration(obj, false) warns instead, and keeps the current
+        %   value of anything it cannot read. init calls it this way, so
+        %   expServer still launches when the share is unreachable.
+        %
+        %   Prints each file's modification time, so the experiment log
+        %   records which calibration it used.
+        if nargin < 2, strict = true; end
+        specs = {  % property, file, variable in the file
+            'VmWSlope',       fullfile('laserModCalib', obj.laserCalibFile), 'calibSlope'
+            'VmWIntercept',   fullfile('laserModCalib', obj.laserCalibFile), 'calibIntercept'
+            'mmPerV_X',       'mmPerV_X.mat',       'mmPerV_X'
+            'mmPerV_Y',       'mmPerV_Y.mat',       'mmPerV_Y'
+            'bregmaOffset_X', 'bregmaOffset_X.mat', 'bregmaOffset_X'
+            'bregmaOffset_Y', 'bregmaOffset_Y.mat', 'bregmaOffset_Y'};
+        mustBeNonzero = {'VmWSlope', 'mmPerV_X', 'mmPerV_Y'};
+
+        vals = cell(size(specs, 1), 1);
+        problems = {};
+        loaded = containers.Map();  % file -> contents, so each file is read once
+        stamps = {};
+        for k = 1:size(specs, 1)
+            [prop, file, var] = specs{k, :};
+            path = fullfile(obj.calibDir, file);
+            try
+                if ~loaded.isKey(file)
+                    loaded(file) = load(path);
+                    d = dir(path);
+                    stamps{end + 1} = sprintf('%s %s', file, ...
+                        datestr(d.datenum, 'yyyy-mm-dd HH:MM')); %#ok<AGROW>
+                end
+                xx = loaded(file);
+                v = xx.(var);
+                if ~(isnumeric(v) && isscalar(v) && isfinite(v)) || ...
+                        (ismember(prop, mustBeNonzero) && v == 0)
+                    error('bad value');
+                end
+                vals{k} = double(v);
+            catch ex
+                problems{end + 1} = sprintf('%s (%s: %s)', prop, path, ex.message); %#ok<AGROW>
+            end
         end
 
-        % galvo calibrations (shared)
-        mmPerV_Xfile = fullfile(obj.calibDir, 'mmPerV_X.mat');
-        if isfile(mmPerV_Xfile)
-            xx = load(mmPerV_Xfile);
-            obj.mmPerV_X = xx.mmPerV_X;
+        if ~isempty(problems)
+            msg = sprintf('%s: could not load calibration:\n  %s', obj.Name, ...
+                strjoin(problems, sprintf('\n  ')));
+            if strict
+                error('SignalsOutputOpto:loadCalibration:failed', '%s', msg);
+            end
+            warning('SignalsOutputOpto:loadCalibration:failed', ...
+                '%s\nKeeping the current values for those.', msg);
         end
-        mmPerV_Yfile = fullfile(obj.calibDir, 'mmPerV_Y.mat');
-        if isfile(mmPerV_Yfile)
-            xx = load(mmPerV_Yfile);
-            obj.mmPerV_Y = xx.mmPerV_Y;
+        for k = 1:size(specs, 1)
+            if ~isempty(vals{k})
+                obj.(specs{k, 1}) = vals{k};
+            end
         end
-        bregmaOffset_Xfile = fullfile(obj.calibDir, 'bregmaOffset_X.mat');
-        if isfile(bregmaOffset_Xfile)
-            xx = load(bregmaOffset_Xfile);
-            obj.bregmaOffset_X = xx.bregmaOffset_X;
-        end
-        bregmaOffset_Yfile = fullfile(obj.calibDir, 'bregmaOffset_Y.mat');
-        if isfile(bregmaOffset_Yfile)
-            xx = load(bregmaOffset_Yfile);
-            obj.bregmaOffset_Y = xx.bregmaOffset_Y;
-        end
+        fprintf(1, '%s calibration: %s\n', obj.Name, strjoin(stamps, ', '));
     end
 
     function command(obj, v)

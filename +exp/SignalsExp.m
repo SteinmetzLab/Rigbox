@@ -310,6 +310,11 @@ classdef SignalsExp < handle
                     ];
             elseif isfield(rig, 'signalsOutputs') && isfield(rig.signalsOutputs, outputNames{m})
                 % this one exists as a signalsOutput class
+                % Reload its calibration now, not just at expServer launch,
+                % so one saved since launch is used. Errors if unreadable.
+                if ismethod(rig.signalsOutputs.(outputNames{m}), 'loadCalibration')
+                    rig.signalsOutputs.(outputNames{m}).loadCalibration(true);
+                end
                 obj.Listeners = [obj.Listeners
                     obj.Outputs.(outputNames{m}).onValue(@(v)rig.signalsOutputs.(outputNames{m}).command(v))
                     obj.Outputs.(outputNames{m}).onValue(@(v)fprintf('sending %s to %s\n',toStr(v),outputNames{m}))
