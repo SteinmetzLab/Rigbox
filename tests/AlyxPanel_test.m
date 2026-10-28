@@ -1,5 +1,5 @@
 classdef (SharedTestFixtures={ % add 'fixtures' folder as test fixture
-    matlab.unittest.fixtures.PathFixture('fixtures'),...
+    TestPathsFixture('fixtures'),...
     matlab.unittest.fixtures.PathFixture(['fixtures' filesep 'util'])})... 
     AlyxPanel_test < matlab.unittest.TestCase
   
@@ -140,8 +140,7 @@ classdef (SharedTestFixtures={ % add 'fixtures' folder as test fixture
       % Remove directories
       repos = [{getOr(dat.paths,'localAlyxQueue', ['fixtures' filesep 'alyxQ'])};...
           dat.reposPath('main'); {getOr(dat.paths, 'globalConfig')}];
-      rm = @(repo)assert(rmdir(repo, 's'), 'Failed to remove test repo %s', repo);
-      cellfun(@(repo)iff(exist(repo,'dir') == 7, @()rm(repo), @()nop), repos);
+      cellfun(@(repo)iff(exist(repo,'dir') == 7, @()rmTestDir(repo), @()nop), repos);
     end
   end
   
