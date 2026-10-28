@@ -76,8 +76,12 @@ classdef TLOutputChrono < hw.TLOutput
             x1 = tls.inputSingleScan;
             outputSingleScan(obj.Session, true)
             x2 = tls.inputSingleScan;
-            assert(x1(timeline.Inputs(idx).arrayColumn) < 2.5 && x2(timeline.Inputs(idx).arrayColumn) > 2.5,...
-                'The clocking pulse test could not be read back');
+            col = timeline.Inputs(idx).arrayColumn;
+            assert(x1(col) < 2.5 && x2(col) > 2.5, 'Rigbox:hw:TLOutputChrono:readBack', ...
+                ['The chrono test pulse could not be read back: wrote low then high on %s/%s, ' ...
+                'read %.2f V then %.2f V on input %s (expected <2.5 then >2.5). Check that a ' ...
+                'wire bridges these two terminals and that the DAQ is powered.'], ...
+                obj.DaqDeviceID, obj.DaqChannelID, x1(col), x2(col), timeline.Inputs(idx).daqChannelID);
             obj.CurrSysTimeTimelineOffset = GetSecs; % to initialize this, will be a bit off but fixed after the first pulse
         end
     end
@@ -89,7 +93,7 @@ classdef TLOutputChrono < hw.TLOutput
       %
       % See Also HW.TIMELINE/START
       if obj.Enable % If the object is to be used
-          if obj.Verbose; fprintf(1, 'start %s\n', obj.name); end
+          if obj.Verbose; fprintf(1, 'start %s\n', obj.Name); end
           t = GetSecs; % system time before output
           outputSingleScan(obj.Session, false) % this will be the clocking pulse detected the first time process is called
           obj.LastClockSentSysTime = (t + GetSecs)/2; 
