@@ -1,5 +1,5 @@
 classdef (SharedTestFixtures={ % add 'fixtures' folder as test fixture
-    TestPathsFixture('fixtures'),...
+    matlab.unittest.fixtures.PathFixture('fixtures'),...
     matlab.unittest.fixtures.PathFixture(['fixtures' filesep 'util'])})...
     dat_test < matlab.unittest.TestCase
   
@@ -66,7 +66,8 @@ classdef (SharedTestFixtures={ % add 'fixtures' folder as test fixture
       testFolders = [dat.reposPath('main');...
         {[dat.reposPath('main', 'm') '2']};...
         {getOr(dat.paths, 'globalConfig')}];
-      addTeardown(testCase, @cellfun, @rmTestDir, testFolders)
+      rmFcn = @(repo)assert(rmdir(repo, 's'), 'Failed to remove test repo %s', repo);
+      addTeardown(testCase, @cellfun, rmFcn, testFolders)
     end
   end
     

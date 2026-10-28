@@ -1,5 +1,5 @@
 classdef (SharedTestFixtures={ % add 'fixtures' folder as test fixture
-    TestPathsFixture(['..' filesep 'fixtures'])})...
+    matlab.unittest.fixtures.PathFixture(['..' filesep 'fixtures'])})...
     setScalePort_test < matlab.unittest.TestCase
     
   methods (TestClassSetup)

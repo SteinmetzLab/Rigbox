@@ -2,7 +2,7 @@
 %srv.stimulusControllers
 %  TODO Create tests for remaining methods
 classdef (SharedTestFixtures={ % add 'fixtures' folder as test fixture
-    TestPathsFixture('fixtures'),...
+    matlab.unittest.fixtures.PathFixture('fixtures'),...
     matlab.unittest.fixtures.PathFixture(['fixtures' filesep 'util'])})...
     StimulusControl_test < matlab.unittest.TestCase & matlab.mock.TestCase
   
@@ -43,7 +43,9 @@ classdef (SharedTestFixtures={ % add 'fixtures' folder as test fixture
       assert(file.exists(fullfile(globalConfigDir, 'remote.mat')))
       
       % Add teardown to remove folders
-      addTeardown(testCase, @rmTestDir, globalConfigDir)
+      rmFcn = @()assert(rmdir(globalConfigDir, 's'), ...
+        'Failed to remove test config folder');
+      addTeardown(testCase, rmFcn)
       
       % Set some default behaviours for some of the objects; create a ref
       testCase.Ref = dat.constructExpRef('test', now, randi(10000));

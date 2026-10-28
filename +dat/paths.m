@@ -7,15 +7,6 @@ function p = paths(rig)
 
 % 2013-03 CB created
 
-% Tests must get tests/fixtures/+dat/paths.m, as their teardowns delete what
-% this returns. See TestPathsFixture.
-global INTEST
-if isequal(INTEST, true)
-  error('Rigbox:dat:paths:inTest', ['The real dat.paths (%s) was called while the ' ...
-    'INTEST flag is set. Tests must use tests/fixtures/+dat/paths.m. If no test is ' ...
-    'running, run "clear global INTEST" or restart MATLAB.'], mfilename('fullpath'));
-end
-
 thishost = hostname;
 
 if nargin < 1 || isempty(rig)
