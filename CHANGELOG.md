@@ -7,6 +7,7 @@ This file contains a curated, chronologically ordered list of notable changes ma
 - HOTFIX: Alyx-MATLAB update
 - HOTFIX: Corrected typo in obj2struct
 - Improved behavior of AlyxPanel when login to data server fails (informative error message, automatic logout)
+- HOTFIX: Tests can't run with the real `dat.paths` in R2019b, so `ReposFixture` can't delete real data folders
 
 ## [2.6.4]
 
