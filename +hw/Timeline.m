@@ -28,6 +28,13 @@ classdef Timeline < handle
 %   can view the wiring information for any given channel by running
 %   wiringInfo(name).
 %
+%   Data layout: column i of Data.rawDAQData is UseInputs{i}, and each
+%   input's arrayColumn field holds its column (-1 if unused). The saved
+%   hw.inputs lists only the used inputs, in column order. 'Voltage'
+%   inputs are in volts, and 'Position' and 'EdgeCount' inputs are raw
+%   counter values ('Position' wraps at 2^32 when the encoder turns
+%   backwards past zero).
+%
 %   Timeline uses the PsychToolbox function GetSecs() to get the most
 %   reliable system time (see GetSecs() and GetSecsTest()).  NB: both the
 %   system time and the DAQ times can (and do) drift.  It also requires the
@@ -42,12 +49,13 @@ classdef Timeline < handle
 %   %To set up chrono a wire must bridge the terminals defined in
 %   timeline.Outputs(1).DaqChannelID and timeline.Inputs(1).daqChannelID
 %     timeline.wiringInfo('chrono');
-%   %Add the rotary encoder
-%     timeline.addInput('rotaryEncoder', 'ctr0', 'Position');
+%   %Add the rotary encoder (not on a counter used by an output, e.g. the
+%   %TLOutputClock default ctr0)
+%     timeline.addInput('rotaryEncoder', 'ctr1', 'Position');
 %   %For a lick detector
-%     timeline.addInput('lickDetector', 'ctr1', 'EdgeCount');
-%   %We want use camera frame acquisition trigger by default
-%     timeline.UseOutputs{end+1} = 'clock';
+%     timeline.addInput('lickDetector', 'ctr2', 'EdgeCount');
+%   %Add a camera trigger clock output
+%     timeline.Outputs(end+1) = hw.TLOutputClock;
 %   %Save your hardware.mat file
 %     save('hardware.mat', 'timeline', '-append')
 %
@@ -138,7 +146,7 @@ classdef Timeline < handle
         % The data file ID for writing aquired data directly to disk
         DataFID
     end
-    
+
     properties (Transient, SetAccess = protected, GetAccess = {?hw.Timeline, ?hw.TLOutput})
         % Map of daq sessions and their channels, created at tl.start()
         Sessions = containers.Map
@@ -195,7 +203,12 @@ classdef Timeline < handle
                 fprintf(1, 'opening binary file for writing\n');
                 localPath = dat.expFilePath(expRef, 'timeline', 'local', 'dat'); % get the local exp data path
                 if ~exist(fileparts(localPath),'dir'); mkdir(fileparts(localPath)); end % if the folder doesn't exist, create it
-                obj.DataFID = fopen(localPath, 'w'); % open a binary data file
+                [obj.DataFID, msg] = fopen(localPath, 'w'); % open a binary data file
+                if obj.DataFID < 0
+                    obj.DataFID = [];
+                    error('Rigbox:hw:Timeline:bufferFile', ...
+                        'Could not open ''%s'' to write the acquisition buffer: %s', localPath, msg);
+                end
                 % save params now so if things crash later you at least have this record of the data type and size so you can load the dat
                 parfid = fopen([localPath(1:end-4) '.par'], 'w'); % open a parameter file
                 fprintf(parfid, 'type = %s\n', obj.AquiredDataType); % record the data type
@@ -302,10 +315,16 @@ classdef Timeline < handle
         function addInput(obj, name, channelID, measurement,...
                 terminalConfig, axesScale, use)
             % Add a new input to the object's Input property
-            %   ADDINPUT(name, channelID, measurement, terminalConfig, use)
-            %   adds a new input 'name' to the Inputs list.  If use is
-            %   true, the input is also added to the UseInputs array.
-            
+            %   ADDINPUT(name, channelID, measurement, terminalConfig,
+            %   axesScale, use) adds a new input 'name' to the Inputs list.
+            %   If use is true (default), the input is also added to the
+            %   UseInputs array.
+            %
+            %   measurement is one of:
+            %     'Voltage'   analog input, channelID 'aiN'
+            %     'EdgeCount' counter input, channelID 'ctrN'
+            %     'Position'  quadrature (X4) encoder, channelID 'ctrN'
+
             % if no terminal config specified, leave empty which means use the
             % DAQ default for that port
             if nargin < 5; terminalConfig = []; end
@@ -317,8 +336,9 @@ classdef Timeline < handle
             if nargin < 7; use = true; end
             
             assert(~any(strcmp(name, {obj.Inputs.name})),...
+                'Rigbox:hw:Timeline:duplicateInput', ...
                 'An input by the name of ''%s'' has already been added.', name);
-            
+
             % sanitize measurement variable
             switch lower(measurement)
                 case {'volts','voltage'}
@@ -328,7 +348,10 @@ classdef Timeline < handle
                 case {'pos','position'}
                     measurement = 'Position';
                 otherwise
-                    error('Unknown measurement type ''%s''', measurement);
+                    error('Rigbox:hw:Timeline:unknownMeasurement', ...
+                        ['Unknown measurement type ''%s'' for input ''%s''. ' ...
+                        'Use ''Voltage'', ''EdgeCount'' or ''Position''.'], ...
+                        measurement, name);
             end
             % sanitize terminalConfig variable
             switch lower(char(terminalConfig))
@@ -529,14 +552,20 @@ classdef Timeline < handle
             if obj.LivePlot; close(get(obj.Axes, 'Parent')); obj.Axes = []; end
             
             % close binary file, if necessary
-            if ~isempty(obj.DataFID); fclose(obj.DataFID); end
+            if ~isempty(obj.DataFID); fclose(obj.DataFID); obj.DataFID = []; end
             
             % Report successful stop
             fprintf('Timeline for ''%s'' stopped and saved successfully.\n', obj.Ref);
         end
     end
         
-    methods (Access = private)
+    methods (Access = protected)
+        function s = newDaqSession(obj)
+            % NEWDAQSESSION Create the DAQ session for input acquisition.
+            %   Separate from init so tests can substitute a mock session.
+            s = daq.createSession(obj.DaqVendor);
+        end
+
         function init(obj)
             % Create DAQ session and add channels
             %   TL.INIT() creates all the DAQ sessions
@@ -544,19 +573,60 @@ classdef Timeline < handle
             %   Also add a 'main' session to which all input channels are
             %   added.
             %
+            %   Channels are added in UseInputs order, and each input's
+            %   arrayColumn is its position in UseInputs. This relies on
+            %   the DAQ returning data columns in the order channels were
+            %   added.
+            %
             % See Also DAQ.CREATESESSION
-            
-            %%reate channels for each input
-            [use, idx] = intersect({obj.Inputs.name}, obj.UseInputs);% find which inputs to use
-            assert(numel(idx) == numel(obj.UseInputs), 'Not all inputs were recognised');
-            inputSession = daq.createSession(obj.DaqVendor); %create DAQ session for input aquisition
+
+            %%Check the inputs to use
+            unknown = setdiff(obj.UseInputs, {obj.Inputs.name});
+            assert(isempty(unknown), 'Rigbox:hw:Timeline:unknownInput', ...
+                'UseInputs lists inputs that are not in Inputs: %s', strjoin(unknown, ', '));
+            assert(numel(unique(obj.UseInputs)) == numel(obj.UseInputs), ...
+                'Rigbox:hw:Timeline:duplicateUseInput', ...
+                'UseInputs lists the same input more than once: %s', strjoin(obj.UseInputs, ', '));
+            use = cellfun(@(n) obj.Inputs(strcmp({obj.Inputs.name}, n)), obj.UseInputs);
+            inKind = @(in) iff(any(strcmp(in.measurement, {'EdgeCount', 'Position'})), 'ctr', 'ai');
+            inKeys = arrayfun(@(in) channelKey(in.daqChannelID, inKind(in)), use, 'UniformOutput', false);
+            [ids, ~, j] = unique(inKeys);
+            shared = ids(accumarray(j(:), 1) > 1);
+            if ~isempty(shared)
+                names = cellfun(@(id) strjoin({use(strcmp(inKeys, id)).name}, ' and '), ...
+                    shared, 'UniformOutput', false);
+                error('Rigbox:hw:Timeline:sharedChannel', ...
+                    ['Inputs in UseInputs share a DAQ channel (%s). Only one input ' ...
+                    'per channel can be recorded; remove the others from UseInputs.'], ...
+                    strjoin(cellfun(@(c, n) [c ': ' n], shared, names, 'UniformOutput', false), '; '));
+            end
+            isChrono = arrayfun(@(out) isa(out, 'hw.TLOutputChrono') && out.Enable, obj.Outputs);
+            assert(~any(isChrono) || any(strcmp(obj.UseInputs, 'chrono')), ...
+                'Rigbox:hw:Timeline:noChronoInput', ...
+                ['The chrono output is enabled but no ''chrono'' input is in UseInputs. ' ...
+                'Timeline needs to read chrono back to keep time; add it to UseInputs.']);
+            % outputs on the same device, with a known channel, reserve it
+            reserves = @(out) logical(out.Enable) && isprop(out, 'DaqChannelID') && ...
+                (~isprop(out, 'DaqDeviceID') || strcmpi(out.DaqDeviceID, obj.DaqIds));
+            enabled = obj.Outputs(arrayfun(reserves, obj.Outputs));
+            outKind = @(out) iff(isa(out, 'hw.TLOutputClock'), 'ctr', '');
+            outKeys = arrayfun(@(out) channelKey(out.DaqChannelID, outKind(out)), enabled, ...
+                'UniformOutput', false);
+            clash = intersect(outKeys, inKeys);
+            assert(isempty(clash), 'Rigbox:hw:Timeline:inputOnOutputChannel', ...
+                'An input in UseInputs is on the same DAQ channel as a Timeline output: %s', ...
+                strjoin(clash, ', '));
+            [obj.Inputs.arrayColumn] = deal(-1); % clear columns left from a previous run
+
+            %%Create channels for each input
+            inputSession = obj.newDaqSession(); %create DAQ session for input aquisition
             inputSession.Rate = obj.DaqSampleRate; % set the aquisition sample rate
             inputSession.IsContinuous = true; % once started, continue acquiring until manually stopped
             inputSession.NotifyWhenDataAvailableExceeds = obj.DaqSamplesPerNotify; % when to process data
             obj.Sessions('main') = inputSession;
             for i = 1:length(use)
-                in = obj.Inputs(strcmp({obj.Inputs.name}, obj.UseInputs(i)));
-                fprintf(1, 'adding channel %s on %s\n', in.name, in.daqChannelID);
+                in = use(i);
+                fprintf(1, 'adding channel %s on %s\n', in.name, inKeys{i});
                 
                 switch in.measurement
                     case 'Voltage'
@@ -570,7 +640,15 @@ classdef Timeline < handle
                         ch = obj.Sessions('main').addCounterInputChannel(obj.DaqIds, in.daqChannelID, in.measurement);
                         % we assume quadrature encoding (X4) for position measurement
                         ch.EncoderType = 'X4';
+                    otherwise
+                        error('Rigbox:hw:Timeline:unknownMeasurement', ...
+                            'Unknown measurement type ''%s'' for input ''%s''.', in.measurement, in.name);
                 end
+                % The column is the input's position in UseInputs, so each
+                % input must have added exactly one channel
+                assert(numel(inputSession.Channels) == i, 'Rigbox:hw:Timeline:channelCount', ...
+                    'Adding input ''%s'' gave %d channels in the DAQ session; expected %d.', ...
+                    in.name, numel(inputSession.Channels), i);
                 obj.Inputs(strcmp({obj.Inputs.name}, obj.UseInputs(i))).arrayColumn = i;
             end
             
@@ -598,12 +676,16 @@ classdef Timeline < handle
             
             %Assert continuity of this data from previous
             assert(abs(event.TimeStamps(1) - obj.LastTimestamp - obj.SamplingInterval) < 1e-8,...
-                'Discontinuity of DAQ acquistion detected: last timestamp was %f and this one is %f',...
+                'Rigbox:hw:Timeline:discontinuity', ...
+                ['Discontinuity of DAQ acquisition detected: last timestamp was %f and this one is %f. ' ...
+                'This chunk was not saved, and later chunks will fail this check too, so the ' ...
+                'recording is truncated here. Usually a previous chunk failed to process; ' ...
+                'look for an earlier warning.'],...
                 obj.LastTimestamp, event.TimeStamps(1));
-            
+
             %Process methods for outputs
             arrayfun(@(out)out.process(obj, event), obj.Outputs);
-            
+
             %Store new samples into the timeline array
             prevSampleCount = obj.Data.rawDAQSampleCount;
             newSampleCount = prevSampleCount + size(event.Data, 1);
@@ -702,4 +784,15 @@ classdef Timeline < handle
             end
         end
     end
+end
+
+function key = channelKey(id, kind)
+% A comparable name for a DAQ channel ID. The DAQ accepts a channel number
+% in place of its name (1 for 'ai1' on an analog channel, 'ctr1' on a
+% counter), so numbers are named by kind; text IDs are case-insensitive.
+if isnumeric(id) && isscalar(id)
+  key = sprintf('%s%d', kind, id);
+else
+  key = lower(char(strjoin(string(id), ',')));
+end
 end
